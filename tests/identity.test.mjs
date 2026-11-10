@@ -26,3 +26,20 @@ test("persistent profiles, authenticated ownership and filtered discovery", asyn
   await second("/auth/logout", {});
   assert.equal((await second("/profile")).status, 401);
 });
+test("local Vite proxy origin is accepted while unrelated origins are rejected", async (t) => {
+  const f = await fixture(t);
+  const cookie = (await f.worker("/auth/me")).cookie;
+  const local = await fetch(f.base + "/api/auth/logout", {
+    method: "POST",
+    headers: { cookie, origin: "http://127.0.0.1:5173", "Content-Type": "application/json" },
+    body: "{}",
+  });
+  assert.equal(local.status, 200);
+  const unrelated = await fetch(f.base + "/api/auth/me", {
+    method: "POST",
+    headers: { cookie, origin: "https://evil.example", "Content-Type": "application/json" },
+    body: "{}",
+  });
+  assert.equal(unrelated.status, 403);
+  assert.equal((await unrelated.json()).error, "ORIGIN_REJECTED");
+});

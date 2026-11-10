@@ -15,6 +15,25 @@ const requireThat = (test, code = "INVALID_INPUT", status = 400) => {
 };
 const text = (value, max = 2000) =>
   typeof value === "string" && value.trim().length > 0 && value.length <= max;
+function originAllowed(origin, host, configured = process.env.ALLOWED_ORIGINS || "") {
+  let url;
+  try {
+    url = new URL(origin);
+  } catch {
+    return false;
+  }
+  const allowed = configured
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (allowed.includes(origin)) return true;
+  if (url.host === host) return true;
+  return (
+    ["localhost", "127.0.0.1", "::1"].includes(url.hostname) &&
+    ["localhost", "127.0.0.1", "::1"].includes(host.split(":")[0]) &&
+    url.protocol === "http:"
+  );
+}
 function passwordHash(password, salt = randomBytes(16).toString("hex")) {
   return `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
 }
@@ -110,9 +129,8 @@ export function createApp({
         });
         return res.end(data);
       }
-      if (method !== "GET" && req.headers.origin) {
-        requireThat(new URL(req.headers.origin).host === req.headers.host, "ORIGIN_REJECTED", 403);
-      }
+      if (method !== "GET" && req.headers.origin)
+        requireThat(originAllowed(req.headers.origin, req.headers.host), "ORIGIN_REJECTED", 403);
       if (path === "/api/health")
         return send(200, { ok: true, ai_configured: !!(ai || process.env.OPENAI_API_KEY) });
       if (path === "/api/catalog") return send(200, { trades: TRADES, areas: AREAS });
