@@ -2,8 +2,8 @@
 @layer base {
   :root {
     font-family: Arial, "Noto Naskh Arabic", sans-serif;
-    color: #1c3028;
-    background: #f8f7f2;
+    color: var(--ink);
+    background: var(--paper);
     font-synthesis: none;
     font-size: 16px;
     line-height: 1.6;
@@ -39,7 +39,7 @@
   input:focus-visible,
   select:focus-visible,
   textarea:focus-visible {
-    outline: 3px solid #a36a17;
+    outline: 3px solid var(--cypress);
     outline-offset: 4px;
   }
   h1,
@@ -68,7 +68,7 @@
     padding: 12px 22px;
     border: 1px solid transparent;
     border-radius: 8px;
-    background: #166044;
+    background: var(--cypress);
     color: white;
     display: inline-flex;
     align-items: center;
@@ -78,7 +78,7 @@
     transition: background 0.15s;
   }
   button:hover {
-    background: #104b34;
+    background: var(--cypress-dark);
   }
   input,
   select,
@@ -88,7 +88,7 @@
     border-radius: 7px;
     background: #fff;
     padding: 12px;
-    color: #1c3028;
+    color: var(--ink);
     min-height: 48px;
   }
   textarea {
@@ -115,7 +115,7 @@
   blockquote {
     margin: 16px 0;
     padding: 16px;
-    border-inline-start: 3px solid #166044;
+    border-inline-start: 3px solid var(--cypress);
     background: #f3f5ee;
   }
   svg {
@@ -139,11 +139,11 @@ header {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  background: #f8f7f2;
+  background: var(--paper);
 }
 .brand {
   background: none;
-  color: #1c3028;
+  color: var(--ink);
   padding: 0;
   border: 0;
   text-align: start;
@@ -162,13 +162,10 @@ header {
   letter-spacing: 0;
 }
 .brand-mark {
-  width: 46px;
-  height: 46px;
-  background: #166044;
-  color: #fff;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  object-fit: contain;
 }
 .header-actions {
   display: flex;
@@ -255,7 +252,7 @@ nav button.active {
 .signed-in {
   margin-inline-start: auto;
   font-size: 0.75rem;
-  color: #5b6655;
+  color: var(--muted);
 }
 .page-heading {
   margin-bottom: 30px;
@@ -265,7 +262,7 @@ nav button.active {
   max-width: 640px;
 }
 .muted {
-  color: #5b6655;
+  color: var(--muted);
   font-size: 0.9rem;
   line-height: 1.65;
 }
@@ -300,7 +297,7 @@ nav button.active {
   margin: 8px 0;
 }
 .dashboard-stats p {
-  color: #5b6655;
+  color: var(--muted);
   font-size: 0.85rem;
 }
 .dashboard-panel .section-heading {
@@ -333,7 +330,7 @@ nav button.active {
   height: 20px;
   min-height: 20px;
   flex-shrink: 0;
-  accent-color: #166044;
+  accent-color: var(--cypress);
 }
 .chips {
   display: flex;
@@ -350,7 +347,7 @@ nav button.active {
 .chip.selected,
 .trade.selected {
   background: #e5efdf;
-  border-color: #166044;
+  border-color: var(--cypress);
   color: #154b33;
 }
 .recorder {
@@ -365,7 +362,7 @@ nav button.active {
 }
 .record-button {
   width: 100%;
-  background: #166044;
+  background: var(--cypress);
 }
 .recording {
   background: #9b3528;
@@ -464,7 +461,7 @@ nav button.active {
 .worker-card {
   display: block;
   background: #fff;
-  color: #1c3028;
+  color: var(--ink);
   border: 1px solid #dce2d5;
   text-align: start;
   border-radius: 12px;
@@ -548,7 +545,7 @@ nav button.active {
   margin-bottom: 12px;
 }
 .empty p {
-  color: #5b6655;
+  color: var(--muted);
 }
 .detail {
   max-width: 750px;
@@ -572,7 +569,7 @@ nav button.active {
 }
 .stats span {
   font-size: 0.72rem;
-  color: #5b6655;
+  color: var(--muted);
 }
 .job-list {
   display: grid;
@@ -580,7 +577,7 @@ nav button.active {
 }
 .job-row {
   background: #fff;
-  color: #1c3028;
+  color: var(--ink);
   border: 1px solid #dce2d5;
   text-align: start;
   justify-content: start;
@@ -592,7 +589,7 @@ nav button.active {
 }
 .job-row small {
   display: block;
-  color: #5b6655;
+  color: var(--muted);
   margin-top: 5px;
 }
 .job-row .pill {
@@ -858,7 +855,7 @@ header,
 .job-row,
 .search-panel {
   border-color: #cdbf9f;
-  box-shadow: 0 3px 0 #c8b995;
+  box-shadow: 0 1px 2px rgb(16 40 32 / 6%);
 }
 button:not([class]) {
   background: var(--cypress);
@@ -866,7 +863,6 @@ button:not([class]) {
 .trade {
   background: var(--paper);
   border-color: #9d8e6c;
-  box-shadow: 0 3px 0 #9d8e6c;
 }
 .trade.selected,
 .chip.selected {
@@ -876,63 +872,16 @@ button:not([class]) {
 .record-button {
   border-radius: 24px;
   border: 2px solid var(--cypress-dark);
-  box-shadow: 0 4px 0 var(--cypress-dark);
 }
 .welcome {
   text-align: center;
 }
 .doorway {
-  position: relative;
-  width: 158px;
-  height: 155px;
-  margin: -8px auto 17px;
-  perspective: 600px;
-  filter: drop-shadow(0 15px 15px rgba(70, 45, 10, 0.2));
-}
-.door-panel {
-  position: absolute;
-  z-index: 2;
-  left: 33px;
-  bottom: 0;
-  width: 92px;
-  height: 126px;
-  border: 8px solid var(--cypress-dark);
-  border-bottom: 0;
-  border-radius: 50px 50px 3px 3px;
-  background: linear-gradient(135deg, #f9d678, var(--saffron));
-  box-shadow:
-    inset 10px 0 rgba(255, 255, 255, 0.25),
-    inset -8px 0 rgba(99, 49, 0, 0.13);
-  transform: rotateY(-12deg);
-  transform-origin: left;
-}
-.door-panel:after {
-  content: "";
-  position: absolute;
-  right: 12px;
-  top: 66px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--ink);
-  box-shadow: 0 0 0 3px #ffd471;
-}
-.sunrise {
-  position: absolute;
-  z-index: 1;
-  inset: 0;
-}
-.sunrise span {
-  position: absolute;
-  left: 53px;
-  top: 2px;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: var(--saffron);
-  box-shadow:
-    0 0 0 10px rgba(243, 167, 18, 0.2),
-    0 0 0 21px rgba(243, 167, 18, 0.1);
+  display: block;
+  width: clamp(124px, 20vw, 164px);
+  height: auto;
+  margin: 0 auto 18px;
+  filter: drop-shadow(0 9px 10px rgb(70 45 10 / 16%));
 }
 .welcome-copy h1 {
   margin: 6px 0 3px;
@@ -1071,4 +1020,33 @@ button:not([class]) {
 }
 nav[aria-label="Main navigation"] {
   flex-wrap: wrap;
+}
+
+/* Shared chrome and interaction states. */
+header {
+  border-bottom: 1px solid #d9c9a6;
+}
+button:not([class]):hover {
+  background: var(--cypress-dark);
+}
+.search-panel .triage {
+  margin-block: 16px;
+}
+.search-panel > .secondary {
+  margin-block: 4px 14px;
+}
+.trade.selected,
+.chip.selected {
+  color: var(--ink);
+}
+nav button:not(.active):hover {
+  background: #e3ebdf;
+  color: var(--cypress-dark);
+}
+.role-card {
+  box-shadow: 0 3px 0 var(--ink);
+}
+.role-card:active {
+  box-shadow: none;
+  transform: translateY(2px);
 }

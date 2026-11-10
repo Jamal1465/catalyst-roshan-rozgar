@@ -8,7 +8,7 @@ import {
   MessageCircle,
   Search,
   Star,
-  Sun,
+  LayoutDashboard,
   Wrench,
   Zap,
   Droplets,
@@ -1279,11 +1279,9 @@ export default function App() {
       </a>
       <header>
         <button className="brand" onClick={() => setScreen(user ? "dashboard" : "welcome")}>
-          <span className="brand-mark">
-            <Sun />
-          </span>
+          <img className="brand-mark" src="/roshan-rozgar.svg" width="44" height="44" alt="" />
           <span>
-            roshan rozgar<small>روشن روزگار</small>
+            Roshan Rozgar<small>روشن روزگار</small>
           </span>
         </button>
         <div className="header-actions">
@@ -1331,7 +1329,7 @@ export default function App() {
             className={screen === "dashboard" ? "active" : ""}
             onClick={() => setScreen("dashboard")}
           >
-            <Sun size={18} />
+            <LayoutDashboard size={18} />
             Dashboard
           </button>
           {user.role === "customer" && (
@@ -1401,12 +1399,7 @@ export default function App() {
             )}
             {screen === "welcome" && (
               <section className="welcome">
-                <div className="doorway" aria-hidden="true">
-                  <div className="sunrise">
-                    <span />
-                  </div>
-                  <div className="door-panel" />
-                </div>
+                <img className="doorway" src="/roshan-rozgar.svg" width="164" height="164" alt="" />
                 <div className="welcome-copy">
                   <p className="eyebrow">ISLAMABAD · RAWALPINDI</p>
                   <h1>{lang === "ur" ? "روشن روزگار" : "Roshan Rozgar"}</h1>
