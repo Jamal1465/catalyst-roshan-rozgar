@@ -351,8 +351,9 @@ function Discovery({ onSelect, revision }: { onSelect: (p: Profile) => void; rev
     let live = true;
     setLoading(true);
     setError("");
+    const areaQuery = area === "all" ? "" : `&area=${encodeURIComponent(area)}`;
     api<Profile[]>(
-      `/workers?area=${encodeURIComponent(area)}&trade=${encodeURIComponent(trade)}${free ? "&available=now" : ""}`,
+      `/workers?trade=${encodeURIComponent(trade)}${areaQuery}${free ? "&available=now" : ""}`,
     )
       .then((rows) => {
         if (live) setWorkers(rows);
@@ -377,6 +378,7 @@ function Discovery({ onSelect, revision }: { onSelect: (p: Profile) => void; rev
           <div className="input-icon">
             <MapPin size={20} />
             <select value={area} onChange={(e) => setArea(e.target.value)}>
+              <option value="all">Everywhere in Islamabad & Rawalpindi</option>
               {areas.map((a) => (
                 <option key={a}>{a}</option>
               ))}
@@ -408,7 +410,9 @@ function Discovery({ onSelect, revision }: { onSelect: (p: Profile) => void; rev
         <h2>
           {loading
             ? "Finding workers…"
-            : `${workers.length} ${workers.length === 1 ? "worker" : "workers"} in ${area}`}
+            : `${workers.length} ${workers.length === 1 ? "worker" : "workers"} ${
+                area === "all" ? "everywhere" : `in ${area}`
+              }`}
         </h2>
         <span className="muted">Matched by service area</span>
       </div>
@@ -422,7 +426,10 @@ function Discovery({ onSelect, revision }: { onSelect: (p: Profile) => void; rev
           <div className="card empty">
             <Search />
             <h2>No workers here yet.</h2>
-            <p>Try another trade or neighbourhood, or turn off the availability filter.</p>
+            <p>
+              Try another trade or neighbourhood, choose Everywhere, or turn off the availability
+              filter.
+            </p>
           </div>
         )}
         {workers.map((w) => (
@@ -446,7 +453,9 @@ function Discovery({ onSelect, revision }: { onSelect: (p: Profile) => void; rev
                 : "No reviews yet"}
             </div>
             <div className="card-footer">
-              <span>Serves {area} · Trade match</span>
+              <span>
+                {area === "all" ? `Serves ${w.areas.join(" · ")}` : `Serves ${area}`} · Trade match
+              </span>
               <ArrowRight size={20} />
             </div>
           </button>
