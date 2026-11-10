@@ -1,3 +1,6 @@
+import { TRADES } from "./db.mjs";
+import { suggestTradeFromTranscript } from "./trade-suggestion.mjs";
+
 const extensions = {
   "audio/webm": "webm",
   "audio/mp4": "m4a",
@@ -65,7 +68,11 @@ export async function audioRoutes(ctx, { id, requireThat, body }) {
     requireThat(["profile", "review", "triage"].includes(purpose), "INVALID_AUDIO_PURPOSE");
     if (bookingId) {
       const booking = one("SELECT * FROM bookings WHERE id=?", bookingId);
-      requireThat(booking && booking.customer_id === user.id && booking.status === "completed", "FORBIDDEN", 403);
+      requireThat(
+        booking && booking.customer_id === user.id && booking.status === "completed",
+        "FORBIDDEN",
+        403,
+      );
       requireThat(purpose === "review");
     } else if (requestId) {
       const r = participant(requestId, user);
@@ -98,7 +105,15 @@ export async function audioRoutes(ctx, { id, requireThat, body }) {
                 (data[0] === 255 && (data[1] & 224) === 224);
     requireThat(valid, "INVALID_AUDIO", 415);
     const audioId = id();
-    run("INSERT INTO audio(owner_id,request_id,mime,data,purpose,id) VALUES(?,?,?,?,?,?)", user.id, requestId, mime, data, purpose, audioId);
+    run(
+      "INSERT INTO audio(owner_id,request_id,mime,data,purpose,id) VALUES(?,?,?,?,?,?)",
+      user.id,
+      requestId,
+      mime,
+      data,
+      purpose,
+      audioId,
+    );
     send(201, { id: audioId });
     return true;
   }
@@ -126,7 +141,11 @@ export async function audioRoutes(ctx, { id, requireThat, body }) {
   if (path === "/api/ai/transcribe-profile" && method === "POST") {
     requireThat(user.role === "worker", "FORBIDDEN", 403);
     requireThat(typeof input.audio_id === "string");
-    const audio = one("SELECT * FROM audio WHERE id=? AND owner_id=? AND purpose='profile'", input.audio_id, user.id);
+    const audio = one(
+      "SELECT * FROM audio WHERE id=? AND owner_id=? AND purpose='profile'",
+      input.audio_id,
+      user.id,
+    );
     requireThat(audio, "NOT_FOUND", 404);
     const result = await (ai || transcribeProfile)(audio);
     const d = result?.draft;
@@ -154,14 +173,20 @@ export async function audioRoutes(ctx, { id, requireThat, body }) {
   }
   if (path === "/api/ai/suggest-trade" && method === "POST") {
     requireThat(user.role === "customer", "FORBIDDEN", 403);
-    requireThat(typeof input.audio_id === "string");
-    const audio = one(
-      "SELECT * FROM audio WHERE id=? AND owner_id=? AND purpose='triage'",
-      input.audio_id,
-      user.id,
-    );
-    requireThat(audio, "NOT_FOUND", 404);
-    const result = await (ai || transcribeProfile)(audio, "triage");
+    let result;
+    if (typeof input.transcript === "string" && input.transcript.trim()) {
+      const transcript = input.transcript.trim().slice(0, 2000);
+      result = { transcript, trade: suggestTradeFromTranscript(transcript) };
+    } else {
+      requireThat(typeof input.audio_id === "string");
+      const audio = one(
+        "SELECT * FROM audio WHERE id=? AND owner_id=? AND purpose='triage'",
+        input.audio_id,
+        user.id,
+      );
+      requireThat(audio, "NOT_FOUND", 404);
+      result = await (ai || transcribeProfile)(audio, "triage");
+    }
     const trade = result?.trade || result?.draft?.trade;
     requireThat(
       typeof result?.transcript === "string" && TRADES.includes(trade),
@@ -173,4 +198,3 @@ export async function audioRoutes(ctx, { id, requireThat, body }) {
   }
   return false;
 }
-import { TRADES } from "./db.mjs";

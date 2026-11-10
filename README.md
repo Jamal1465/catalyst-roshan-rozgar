@@ -50,15 +50,15 @@ participant messages, publishes proposals, confirms one booking in each trade
 category, runs every worker/customer lifecycle, writes reviews, and verifies
 restored availability.
 
-| Username | Role | Trade |
-|---|---|---|
-| `demo-aslam` | Worker | Electrician |
-| `demo-sana` | Worker | Plumber |
-| `demo-hamza` | Worker | AC technician |
-| `demo-maria` | Worker | Carpenter |
-| `demo-bilal` | Worker | Mechanic |
+| Username          | Role     | Trade          |
+| ----------------- | -------- | -------------- |
+| `demo-aslam`      | Worker   | Electrician    |
+| `demo-sana`       | Worker   | Plumber        |
+| `demo-hamza`      | Worker   | AC technician  |
+| `demo-maria`      | Worker   | Carpenter      |
+| `demo-bilal`      | Worker   | Mechanic       |
 | `demo-customer-a` | Customer | Requests Aslam |
-| `demo-customer-b` | Customer | Requests Sana |
+| `demo-customer-b` | Customer | Requests Sana  |
 | `demo-customer-c` | Customer | Requests Hamza |
 | `demo-customer-d` | Customer | Requests Maria |
 | `demo-customer-e` | Customer | Requests Bilal |
@@ -85,6 +85,11 @@ private audio, AI authorization, and post-logout access.
   through OpenAI. The draft always requires worker confirmation.
 - Optional customer voice triage suggests a catalog trade from a recorded
   household problem; the customer must confirm the suggestion before searching.
+  In browsers with Web Speech API support, Urdu/Roman Urdu speech is transcribed
+  locally in the browser and classified server-side for all five trades. When
+  browser speech recognition is unavailable, an OpenAI key enables uploaded
+  audio transcription; otherwise the UI reports that voice classification is
+  unavailable instead of fabricating a result.
 - Versioned worker proposals, explicit customer acceptance, idempotent
   confirmation and a database uniqueness guard against double booking.
 - Worker start/finish, customer completion and one authorized persisted review.
@@ -219,15 +224,15 @@ erDiagram
 The security review for this release found no actionable vulnerabilities.
 The review verified:
 
-| Area | Control |
-|---|---|
-| Authentication | Scrypt password hashes, hashed session tokens, HttpOnly/SameSite cookies, expiry |
-| Authorization | Server-side role checks and participant checks for requests, messages, audio, bookings and reviews |
-| Booking integrity | SQLite transaction, active-worker unique index, proposal version check and idempotency key |
-| Audio privacy | Owner/participant access checks, MIME and container validation, 5 MB request limit, per-user quota |
-| Input safety | Bounded fields, allow-listed trades/areas, parameterized SQL, React escaping |
-| Browser boundary | Same-origin validation for state-changing requests and `nosniff` response headers |
-| Dependencies | `npm audit --omit=dev` reported zero high production vulnerabilities during review |
+| Area              | Control                                                                                            |
+| ----------------- | -------------------------------------------------------------------------------------------------- |
+| Authentication    | Scrypt password hashes, hashed session tokens, HttpOnly/SameSite cookies, expiry                   |
+| Authorization     | Server-side role checks and participant checks for requests, messages, audio, bookings and reviews |
+| Booking integrity | SQLite transaction, active-worker unique index, proposal version check and idempotency key         |
+| Audio privacy     | Owner/participant access checks, MIME and container validation, 5 MB request limit, per-user quota |
+| Input safety      | Bounded fields, allow-listed trades/areas, parameterized SQL, React escaping                       |
+| Browser boundary  | Same-origin validation for state-changing requests and `nosniff` response headers                  |
+| Dependencies      | `npm audit --omit=dev` reported zero high production vulnerabilities during review                 |
 
 This is a local MVP, not a production deployment assessment. Before exposing it
 publicly, add TLS/reverse-proxy hardening, centralized rate limiting, backup
@@ -236,15 +241,15 @@ external penetration test.
 
 ## Test and verification matrix
 
-| Command or check | Coverage |
-|---|---|
-| `npm run typecheck` | TypeScript correctness |
-| `npm test` | Auth, profile persistence, discovery, private audio, agreement, concurrency, lifecycle and reviews |
-| `npm run build` | Production Vite bundle |
-| `npm run check` | All three checks above |
-| `curl http://127.0.0.1:3001/api/health` | API readiness and AI configuration disclosure |
-| `curl -I http://127.0.0.1:5173/` | Web server readiness |
-| `npm audit --omit=dev` | Production dependency advisory scan |
+| Command or check                        | Coverage                                                                                           |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `npm run typecheck`                     | TypeScript correctness                                                                             |
+| `npm test`                              | Auth, profile persistence, discovery, private audio, agreement, concurrency, lifecycle and reviews |
+| `npm run build`                         | Production Vite bundle                                                                             |
+| `npm run check`                         | All three checks above                                                                             |
+| `curl http://127.0.0.1:3001/api/health` | API readiness and AI configuration disclosure                                                      |
+| `curl -I http://127.0.0.1:5173/`        | Web server readiness                                                                               |
+| `npm audit --omit=dev`                  | Production dependency advisory scan                                                                |
 
 The API and Vite processes must each have an available port. If `3001` or
 `5173` is already occupied, stop the existing process or set `PORT` for the
@@ -257,17 +262,17 @@ an application-level test result.
 The UI uses the browser History API rather than a third-party router. These
 routes are supported and survive refresh:
 
-| Route | Purpose |
-|---|---|
-| `/` | Welcome page |
-| `/dashboard` | Authenticated user summary and recent activity |
-| `/discover` | Customer worker discovery |
-| `/workers/:id` | Public worker profile |
-| `/auth/customer` | Customer sign-in/register |
-| `/auth/worker` | Worker sign-in/register |
-| `/profile` | Authenticated worker profile editor |
-| `/jobs` | Authenticated request list |
-| `/requests/:id` | Authenticated participant conversation |
+| Route            | Purpose                                        |
+| ---------------- | ---------------------------------------------- |
+| `/`              | Welcome page                                   |
+| `/dashboard`     | Authenticated user summary and recent activity |
+| `/discover`      | Customer worker discovery                      |
+| `/workers/:id`   | Public worker profile                          |
+| `/auth/customer` | Customer sign-in/register                      |
+| `/auth/worker`   | Worker sign-in/register                        |
+| `/profile`       | Authenticated worker profile editor            |
+| `/jobs`          | Authenticated request list                     |
+| `/requests/:id`  | Authenticated participant conversation         |
 
 The Node server falls back to the built `index.html` for non-API paths, so
 direct links work in the production-style server as well as Vite development.

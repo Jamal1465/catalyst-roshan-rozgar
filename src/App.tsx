@@ -121,7 +121,11 @@ function Dashboard({
         </div>
         <div className="card">
           <span className="eyebrow">{user.role === "worker" ? "REPUTATION" : "REVIEWS"}</span>
-          <strong>{user.role === "worker" && profile?.review_count ? Number(profile.rating).toFixed(1) : reviews}</strong>
+          <strong>
+            {user.role === "worker" && profile?.review_count
+              ? Number(profile.rating).toFixed(1)
+              : reviews}
+          </strong>
           <p>{user.role === "worker" ? `${reviews} customer reviews` : "Reviews received"}</p>
         </div>
       </div>
@@ -141,7 +145,9 @@ function Dashboard({
                 </span>
                 <span>
                   <b>{job.description}</b>
-                  <small>{job.worker_name} · {job.area}</small>
+                  <small>
+                    {job.worker_name} · {job.area}
+                  </small>
                 </span>
                 <span className="pill">{job.booking?.status || job.status}</span>
                 <ArrowRight size={18} />
@@ -469,14 +475,16 @@ function Discovery({ onSelect, revision }: { onSelect: (p: Profile) => void; rev
         </Field>
         <div className="card triage">
           <h2>Not sure which trade you need?</h2>
-          <p className="muted">Describe the problem by voice. We will suggest a trade for you to confirm.</p>
+          <p className="muted">
+            Describe the problem by voice. We will suggest a trade for you to confirm.
+          </p>
           <Recorder
             label="Suggest a trade"
-            onSend={async (blob) => {
+            onSend={async (blob, transcript) => {
               const audio_id = await upload(blob, undefined, "triage");
               const result = await api<{ transcript: string; trade: string }>(
                 "/ai/suggest-trade",
-                { audio_id },
+                transcript ? { audio_id, transcript } : { audio_id },
               );
               setTriage(result.trade);
               setTriageTranscript(result.transcript);
@@ -950,9 +958,7 @@ function Conversation({
             <button
               className="text-button"
               disabled={busy}
-              onClick={() =>
-                action(`/requests/${job.id}/${canDecline ? "decline" : "cancel"}`)
-              }
+              onClick={() => action(`/requests/${job.id}/${canDecline ? "decline" : "cancel"}`)}
             >
               {canDecline ? "Decline request" : "Cancel request"}
             </button>
@@ -1079,12 +1085,7 @@ export default function App() {
         Skip to content
       </a>
       <header>
-        <button
-          className="brand"
-          onClick={() =>
-            setScreen(user ? "dashboard" : "welcome")
-          }
-        >
+        <button className="brand" onClick={() => setScreen(user ? "dashboard" : "welcome")}>
           <span className="brand-mark">
             <Sun />
           </span>

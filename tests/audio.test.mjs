@@ -89,3 +89,14 @@ test("explicit test provider returns uncertain draft without auto-publishing", a
   assert.ok(result.draft.uncertain_fields.includes("years_experience"));
   assert.equal((await f.worker("/profile")).data.years_experience, 8);
 });
+
+test("customer voice transcript classifies a trade without external AI", async (t) => {
+  const f = await fixture(t);
+  const result = await f.a("/ai/suggest-trade", {
+    transcript: "میرے گھر کا پنکھا خراب ہے اور سوئچ بھی نہیں چل رہا",
+  });
+  assert.equal(result.status, 200);
+  assert.equal(result.data.trade, "Electrician");
+  assert.equal(result.data.requires_confirmation, true);
+  assert.match(result.data.transcript, /پنکھا/);
+});

@@ -1,10 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { Mic, Square, Trash2, Upload } from "lucide-react";
+type SpeechRecognitionLike = {
+  start: () => void;
+  stop: () => void;
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: (() => void) | null;
+};
+type SpeechRecognitionEventLike = {
+  results: ArrayLike<ArrayLike<{ transcript: string }>>;
+};
 export function Recorder({
   onSend,
   label = "Use this recording",
 }: {
-  onSend: (blob: Blob) => Promise<void>;
+  onSend: (blob: Blob, transcript?: string) => Promise<void>;
   label?: string;
 }) {
   const [recording, setRecording] = useState(false),
@@ -16,12 +28,15 @@ export function Recorder({
     stream = useRef<MediaStream | null>(null),
     timer = useRef<ReturnType<typeof setTimeout> | null>(null),
     mounted = useRef(true);
+  const transcript = useRef("");
+  const recognition = useRef<SpeechRecognitionLike | null>(null);
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
       if (timer.current) clearTimeout(timer.current);
       if (recorder.current?.state === "recording") recorder.current.stop();
+      recognition.current?.stop();
       stream.current?.getTracks().forEach((t) => t.stop());
     };
   }, []);
@@ -37,6 +52,7 @@ export function Recorder({
   function stop() {
     if (timer.current) clearTimeout(timer.current);
     if (recorder.current?.state === "recording") recorder.current.stop();
+    recognition.current?.stop();
   }
   async function start() {
     setError("");
@@ -71,6 +87,35 @@ export function Recorder({
         setError("Recording failed. Please retry or use text.");
       };
       r.start();
+      transcript.current = "";
+      const SpeechRecognition =
+        (
+          window as Window & {
+            SpeechRecognition?: new () => SpeechRecognitionLike;
+            webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+          }
+        ).SpeechRecognition ||
+        (
+          window as Window & {
+            SpeechRecognition?: new () => SpeechRecognitionLike;
+            webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+          }
+        ).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const speech = new SpeechRecognition();
+        speech.lang = "ur-PK";
+        speech.interimResults = false;
+        speech.continuous = true;
+        speech.onresult = (event) => {
+          transcript.current = Array.from(event.results)
+            .map((result) => result[0]?.transcript || "")
+            .join(" ")
+            .trim();
+        };
+        speech.onerror = () => undefined;
+        recognition.current = speech;
+        speech.start();
+      }
       setBlob(null);
       setRecording(true);
       timer.current = setTimeout(stop, 60000);
@@ -116,7 +161,7 @@ export function Recorder({
                 setPending(true);
                 setError("");
                 try {
-                  await onSend(blob);
+                  await onSend(blob, transcript.current || undefined);
                   setBlob(null);
                 } catch (e) {
                   setError((e as Error).message);
