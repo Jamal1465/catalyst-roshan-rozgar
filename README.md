@@ -37,13 +37,17 @@ npm run seed:demo
 npm run e2e:demo
 ```
 
-The accounts are `demo-aslam` and `demo-sana` (workers), plus
-`demo-customer-a` and `demo-customer-b` (customers). The local-only password
-for all four is `Roshan-Demo-2026!`. These are demo credentials, not production
-secrets; do not reuse them outside the local database. The end-to-end command
+The accounts include five workers covering every catalog category:
+`demo-aslam` (Electrician), `demo-sana` (Plumber), `demo-hamza` (AC
+technician), `demo-maria` (Carpenter) and `demo-bilal` (Mechanic), plus five
+matching customer accounts from `demo-customer-a` through
+`demo-customer-e`. The local-only password for all ten is
+`Roshan-Demo-2026!`. These are demo credentials, not production secrets; do
+not reuse them outside the local database. The end-to-end command
 logs in as every account, verifies role identity, checks discovery, creates
-participant messages, publishes proposals, confirms bookings, runs the
-worker/customer lifecycle, writes reviews, and verifies restored availability.
+participant messages, publishes proposals, confirms one booking in each trade
+category, runs every worker/customer lifecycle, writes reviews, and verifies
+restored availability.
 
 ## What is functional
 

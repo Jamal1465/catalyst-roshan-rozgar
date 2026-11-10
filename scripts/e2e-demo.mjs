@@ -4,9 +4,15 @@ import { demoPassword, seedDemoUsers } from "./seed-demo.mjs";
 const users = await seedDemoUsers();
 const aslam = users.find((user) => user.username === "demo-aslam");
 const sana = users.find((user) => user.username === "demo-sana");
+const hamza = users.find((user) => user.username === "demo-hamza");
+const maria = users.find((user) => user.username === "demo-maria");
+const bilal = users.find((user) => user.username === "demo-bilal");
 const customerA = users.find((user) => user.username === "demo-customer-a");
 const customerB = users.find((user) => user.username === "demo-customer-b");
-assert.ok(aslam && sana && customerA && customerB);
+const customerC = users.find((user) => user.username === "demo-customer-c");
+const customerD = users.find((user) => user.username === "demo-customer-d");
+const customerE = users.find((user) => user.username === "demo-customer-e");
+assert.ok(aslam && sana && hamza && maria && bilal && customerA && customerB && customerC && customerD && customerE);
 
 for (const user of users) {
   const me = await user.api("/auth/me");
@@ -71,8 +77,11 @@ await completeJob(
   "Repair ceiling fan",
 );
 await completeJob(customerB, sana, "F-10", "Demo tap repair", "Repair leaking tap");
+await completeJob(customerC, hamza, "Saddar", "Demo AC cooling issue", "Service split AC");
+await completeJob(customerD, maria, "I-8", "Demo door repair", "Fit and repair wooden door");
+await completeJob(customerE, bilal, "G-10", "Demo motorcycle repair", "Repair motorcycle");
 
-for (const worker of [aslam, sana]) {
+for (const worker of [aslam, sana, hamza, maria, bilal]) {
   const me = await worker.api("/auth/me");
   const profile = await worker.api("/workers/" + me.data.user.id);
   assert.equal(profile.status, 200);

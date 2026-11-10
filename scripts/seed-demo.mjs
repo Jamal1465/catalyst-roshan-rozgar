@@ -27,8 +27,50 @@ export const demoUsers = [
       language: "en",
     },
   },
+  {
+    username: "demo-hamza",
+    role: "worker",
+    profile: {
+      name: "Hamza Demo",
+      trade: "AC technician",
+      years_experience: 6,
+      services: ["AC servicing", "Cooling repair"],
+      areas: ["Saddar", "Satellite Town"],
+      manual_available: true,
+      language: "en",
+    },
+  },
+  {
+    username: "demo-maria",
+    role: "worker",
+    profile: {
+      name: "Maria Demo",
+      trade: "Carpenter",
+      years_experience: 7,
+      services: ["Furniture repair", "Door fitting"],
+      areas: ["G-9", "I-8"],
+      manual_available: true,
+      language: "en",
+    },
+  },
+  {
+    username: "demo-bilal",
+    role: "worker",
+    profile: {
+      name: "Bilal Demo",
+      trade: "Mechanic",
+      years_experience: 9,
+      services: ["Motorcycle repair", "Oil change"],
+      areas: ["G-10", "F-10"],
+      manual_available: true,
+      language: "en",
+    },
+  },
   { username: "demo-customer-a", role: "customer" },
   { username: "demo-customer-b", role: "customer" },
+  { username: "demo-customer-c", role: "customer" },
+  { username: "demo-customer-d", role: "customer" },
+  { username: "demo-customer-e", role: "customer" },
 ];
 
 function client() {
@@ -51,13 +93,16 @@ function client() {
 
 async function ensureAccount(user) {
   const api = client();
-  let result = await api("/auth/register", {
+  let result = await api("/auth/login", {
     username: user.username,
     password: demoPassword,
-    role: user.role,
   });
-  if (result.status === 409) {
-    result = await api("/auth/login", { username: user.username, password: demoPassword });
+  if (result.status === 401) {
+    result = await api("/auth/register", {
+      username: user.username,
+      password: demoPassword,
+      role: user.role,
+    });
   }
   if (result.status !== 200) throw new Error(`${user.username}: ${result.data.error}`);
   if (user.profile) {
