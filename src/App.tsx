@@ -24,6 +24,7 @@ type Screen =
   | "dashboard"
   | "discover"
   | "profile"
+  | "person"
   | "jobs"
   | "detail"
   | "conversation"
@@ -35,6 +36,7 @@ function readRoute(): { screen: Screen; id?: string; role?: User["role"] } {
   if (path === "/discover") return { screen: "discover" };
   if (path === "/profile") return { screen: "profile" };
   if (path === "/jobs") return { screen: "jobs" };
+  if (path.startsWith("/people/")) return { screen: "person", id: path.slice(8) };
   if (path.startsWith("/workers/")) return { screen: "detail", id: path.slice(9) };
   if (path.startsWith("/requests/")) return { screen: "conversation", id: path.slice(10) };
   if (path === "/auth/worker") return { screen: "auth", role: "worker" };
@@ -667,6 +669,11 @@ function WorkerDetail({
           <span>Years of experience</span>
         </div>
       </div>
+      {profile.has_public_account && (
+        <a className="profile-link" href={"/people/" + profile.user_id}>
+          View account details
+        </a>
+      )}
       <h2>How I can help</h2>
       <ul>
         {profile.services.map((s) => (
@@ -784,6 +791,14 @@ function Conversation({
       >
         {job.description}
       </Heading>
+      <p>
+        <a
+          className="profile-link"
+          href={isWorker ? "/people/" + job.customer_id : "/workers/" + job.worker_id}
+        >
+          View {isWorker ? "customer" : "worker"} profile
+        </a>
+      </p>
       <div className="editor-grid">
         <section className="card">
           <h2>
@@ -1025,6 +1040,139 @@ function Conversation({
     </>
   );
 }
+type AccountDetails = { display_name: string; bio: string; area: string; published: number };
+
+function AccountProfile({ user }: { user: User }) {
+  const [details, setDetails] = useState<AccountDetails | null>(null);
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    let active = true;
+    api<AccountDetails>("/account-profile")
+      .then((data) => {
+        if (active) setDetails(data);
+      })
+      .catch(() => {
+        if (active) setError("Could not load your profile. Refresh and try again.");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  return (
+    <section className="card detail">
+      <Heading tag="YOUR ACCOUNT" title="My profile">
+        Signed in as {user.username} · {user.role}
+      </Heading>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      {!details && !error && <p role="status">Loading your details…</p>}
+      {details && (
+        <Form
+          onSubmit={async (data) => {
+            setSaved(false);
+            setDetails(
+              await api<AccountDetails>("/account-profile", {
+                display_name: data.get("display_name"),
+                bio: data.get("bio"),
+                area: data.get("area"),
+                published: data.get("published") === "on",
+              }),
+            );
+            setSaved(true);
+          }}
+        >
+          <Field label="Display name">
+            <input
+              name="display_name"
+              required
+              maxLength={80}
+              defaultValue={details.display_name}
+            />
+          </Field>
+          <Field label="About me">
+            <textarea name="bio" maxLength={500} defaultValue={details.bio} />
+          </Field>
+          <Field label="Neighbourhood (optional)">
+            <select name="area" defaultValue={details.area}>
+              <option value="">Do not share a neighbourhood</option>
+              {areas.map((area) => (
+                <option key={area}>{area}</option>
+              ))}
+            </select>
+          </Field>
+          <label className="check">
+            <input name="published" type="checkbox" defaultChecked={!!details.published} />
+            Publish my display name, bio, neighbourhood and role
+          </label>
+          <p className="muted">
+            Anyone with the link can view published details. Avoid including your phone number or
+            exact address.
+          </p>
+          <div className="actions">
+            <button>Save profile</button>
+            {details.published ? (
+              <a className="profile-link" href={"/people/" + user.id}>
+                View public profile
+              </a>
+            ) : null}
+          </div>
+          {saved && (
+            <p role="status" className="success">
+              Profile saved.
+            </p>
+          )}
+        </Form>
+      )}
+    </section>
+  );
+}
+
+function PublicAccountProfile({ id }: { id: string }) {
+  const [details, setDetails] = useState<
+    (AccountDetails & { role: User["role"]; has_worker_profile: number }) | null
+  >(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    api<NonNullable<typeof details>>("/people/" + encodeURIComponent(id))
+      .then((data) => {
+        if (active) setDetails(data);
+      })
+      .catch(() => {
+        if (active) setError("This profile is unavailable or has not been published.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
+  if (error)
+    return (
+      <p role="alert" className="notice">
+        {error}
+      </p>
+    );
+  if (!details) return <p role="status">Loading profile…</p>;
+  return (
+    <section className="card detail">
+      <Heading tag={details.role.toUpperCase()} title={details.display_name}>
+        {details.area}
+      </Heading>
+      {details.bio && <p>{details.bio}</p>}
+      {!!details.has_worker_profile && (
+        <p>
+          <a className="profile-link" href={"/workers/" + id}>
+            View services and customer reviews
+          </a>
+        </p>
+      )}
+    </section>
+  );
+}
+
 export default function App() {
   const [lang, setLang] = useState<Lang>("en"),
     [user, setUser] = useState<User | null>(null),
@@ -1086,11 +1234,7 @@ export default function App() {
           setRole(route.role || "customer");
         } else if (r.user && route.screen === "welcome") {
           setScreen("dashboard");
-        } else if (
-          r.user &&
-          ((r.user.role === "worker" && route.screen === "discover") ||
-            (r.user.role === "customer" && route.screen === "profile"))
-        ) {
+        } else if (r.user && r.user.role === "worker" && route.screen === "discover") {
           setScreen("dashboard");
         }
       })
@@ -1190,7 +1334,7 @@ export default function App() {
             <Sun size={18} />
             Dashboard
           </button>
-          {user.role === "customer" ? (
+          {user.role === "customer" && (
             <button
               className={screen === "discover" ? "active" : ""}
               onClick={() => setScreen("discover")}
@@ -1198,7 +1342,8 @@ export default function App() {
               <Search size={18} />
               {t.find}
             </button>
-          ) : (
+          )}
+          {
             <button
               className={screen === "profile" ? "active" : ""}
               onClick={() => setScreen("profile")}
@@ -1206,7 +1351,7 @@ export default function App() {
               <Wrench size={18} />
               {t.profile}
             </button>
-          )}
+          }
           <button className={screen === "jobs" ? "active" : ""} onClick={() => setScreen("jobs")}>
             <BriefcaseBusiness size={18} />
             {t.jobs} <span className="count">{jobs.length}</span>
@@ -1346,13 +1491,28 @@ export default function App() {
                 }}
               />
             )}
+            {screen === "person" && readRoute().id && (
+              <PublicAccountProfile key={readRoute().id} id={readRoute().id!} />
+            )}
             {screen === "profile" && user && (
-              <ProfileEditor
-                key={profile?.user_id || "new"}
-                profile={profile}
-                onSaved={refresh}
-                lang={lang}
-              />
+              <>
+                <AccountProfile key={user.id} user={user} />
+                {user.role === "worker" && (
+                  <div className="trade-profile">
+                    {profile && (
+                      <a className="profile-link" href={"/workers/" + profile.user_id}>
+                        View my services and reviews
+                      </a>
+                    )}
+                    <ProfileEditor
+                      key={profile?.user_id || "new"}
+                      profile={profile}
+                      onSaved={refresh}
+                      lang={lang}
+                    />
+                  </div>
+                )}
+              </>
             )}
             {screen === "jobs" && (
               <>

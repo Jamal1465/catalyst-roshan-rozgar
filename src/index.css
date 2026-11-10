@@ -1058,3 +1058,17 @@ button:not([class]) {
     min-height: 88px;
   }
 }
+
+.profile-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--cypress-dark);
+  text-decoration: underline;
+}
+.trade-profile {
+  margin-top: 28px;
+}
+nav[aria-label="Main navigation"] {
+  flex-wrap: wrap;
+}

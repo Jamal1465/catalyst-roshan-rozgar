@@ -4,6 +4,7 @@ export interface User {
   role: "worker" | "customer";
 }
 export interface Profile {
+  has_public_account?: boolean;
   user_id: string;
   name: string;
   trade: string;
@@ -77,10 +78,11 @@ export async function upload(
   if (requestId) query.set("request_id", requestId);
   if (purpose === "review") query.set("booking_id", bookingId || "");
   if (purpose === "triage") query.set("purpose", purpose);
-  const res = await fetch(
-    "/api/audio" + (query.toString() ? "?" + query.toString() : ""),
-    { method: "POST", headers: { "Content-Type": blob.type }, body: blob },
-  );
+  const res = await fetch("/api/audio" + (query.toString() ? "?" + query.toString() : ""), {
+    method: "POST",
+    headers: { "Content-Type": blob.type },
+    body: blob,
+  });
   const json = await res.json();
   if (!res.ok) throw new Error(json.error.replaceAll("_", " "));
   return json.id as string;

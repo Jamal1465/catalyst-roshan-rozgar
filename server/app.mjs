@@ -208,6 +208,18 @@ export function createApp({
         return send(200, { id: account.id, username: account.username, role: account.role });
       }
       if (path === "/api/auth/me") return send(200, { user: user || null });
+      const publicProfile = path.match(/^\/api\/people\/([^/]+)$/);
+      if (publicProfile && method === "GET") {
+        const profile = one(
+          `SELECT p.display_name,p.bio,p.area,u.role,
+            EXISTS(SELECT 1 FROM workers w WHERE w.user_id=u.id) AS has_worker_profile
+            FROM account_profiles p JOIN users u ON u.id=p.user_id
+            WHERE p.user_id=? AND p.published=1`,
+          publicProfile[1],
+        );
+        requireThat(profile, "NOT_FOUND", 404);
+        return send(200, profile);
+      }
       if (path === "/api/workers" && method === "GET") {
         let rows = all(workerQuery).map(worker);
         if (url.searchParams.get("trade"))
@@ -222,6 +234,10 @@ export function createApp({
         requireThat(row, "NOT_FOUND", 404);
         return send(200, {
           ...worker(row),
+          has_public_account: !!one(
+            "SELECT 1 FROM account_profiles WHERE user_id=? AND published=1",
+            row.user_id,
+          ),
           reviews: all(
             "SELECT rating,feedback,created_at FROM reviews WHERE worker_id=?",
             row.user_id,
@@ -243,6 +259,42 @@ export function createApp({
         run("DELETE FROM sessions WHERE token=?", hash(cookie));
         res.setHeader("Set-Cookie", "session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0");
         return send(200, { ok: true });
+      }
+      if (path === "/api/account-profile" && method === "GET") {
+        return send(
+          200,
+          one(
+            "SELECT display_name,bio,area,published FROM account_profiles WHERE user_id=?",
+            user.id,
+          ) || { display_name: "", bio: "", area: "", published: 0 },
+        );
+      }
+      if (path === "/api/account-profile" && method === "POST") {
+        requireThat(
+          input &&
+            text(input.display_name, 80) &&
+            typeof input.bio === "string" &&
+            input.bio.length <= 500 &&
+            (input.area === "" || AREAS.includes(input.area)) &&
+            typeof input.published === "boolean",
+        );
+        run(
+          `INSERT INTO account_profiles VALUES (?,?,?,?,?)
+          ON CONFLICT(user_id) DO UPDATE SET display_name=excluded.display_name,
+          bio=excluded.bio,area=excluded.area,published=excluded.published`,
+          user.id,
+          input.display_name.trim(),
+          input.bio.trim(),
+          input.area,
+          Number(input.published),
+        );
+        return send(
+          200,
+          one(
+            "SELECT display_name,bio,area,published FROM account_profiles WHERE user_id=?",
+            user.id,
+          ),
+        );
       }
       if (path === "/api/profile" && method === "GET") {
         const row = one(workerQuery + " WHERE w.user_id=?", user.id);
