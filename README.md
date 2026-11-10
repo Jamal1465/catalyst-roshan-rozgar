@@ -35,6 +35,7 @@ accounts:
 ```sh
 npm run seed:demo
 npm run e2e:demo
+npm run audit:endpoints
 ```
 
 The accounts include five workers covering every catalog category:
@@ -63,6 +64,12 @@ restored availability.
 | `demo-customer-e` | Customer | Requests Bilal |
 
 **Demo password for every account:** `Roshan-Demo-2026!`
+
+`npm run audit:endpoints` runs an isolated endpoint audit against a temporary
+database. It covers public endpoints, registration/login/logout, roles,
+profiles, discovery, private requests/messages, proposals, stale and
+idempotent booking acceptance, lifecycle transitions, review uniqueness,
+private audio, AI authorization, and post-logout access.
 
 ## What is functional
 

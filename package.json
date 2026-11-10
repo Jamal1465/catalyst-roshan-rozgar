@@ -12,6 +12,7 @@
     "dev:api": "node --env-file-if-exists=.env server/index.mjs",
     "seed:demo": "node --env-file-if-exists=.env scripts/seed-demo.mjs",
     "e2e:demo": "node --env-file-if-exists=.env scripts/e2e-demo.mjs",
+    "audit:endpoints": "node scripts/endpoint-audit.mjs",
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
     "check": "npm run typecheck && npm test && npm run build",
