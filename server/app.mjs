@@ -71,5 +71,29 @@ export function createApp({ databasePath = process.env.DATABASE_PATH || 'data/ro
   });
   return { server, db };
 }
-async function domainRoutes() { return false; }
+async function domainRoutes(ctx) {
+ const {path,method,input,user,one,all,run,send,participant,detail}=ctx;
+ if(path==='/api/requests' && method==='GET') {send(200,all('SELECT id FROM requests WHERE customer_id=? OR worker_id=? ORDER BY rowid DESC',user.id,user.id).map(r=>detail(r.id,user)));return true;}
+ if(path==='/api/requests' && method==='POST') {
+  requireThat(user.role==='customer','FORBIDDEN',403);const w=one('SELECT * FROM workers WHERE user_id=?',input.worker_id || '');
+  requireThat(w && JSON.parse(w.areas).includes(input.area)&&text(input.description));
+  const requestId=id();run('INSERT INTO requests(id,customer_id,worker_id,area,description) VALUES(?,?,?,?,?)',requestId,user.id,w.user_id,input.area,input.description.trim());send(201,detail(requestId,user));return true;
+ }
+ const match=path.match(/^\/api\/requests\/([^/]+)(?:\/(messages|proposals|cancel|decline))?$/);
+ if(match) {
+  const [,requestId,action]=match;const request=participant(requestId,user);
+  if(method==='GET'&&!action){send(200,detail(requestId,user));return true;}
+  if(method==='POST') {
+   requireThat(['requested','discussing'].includes(request.status),'REQUEST_CLOSED',409);
+   if(action==='messages') {requireThat(text(input.body)||text(input.audio_id,80));if(input.audio_id)requireThat(one('SELECT id FROM audio WHERE id=? AND owner_id=? AND request_id=?',input.audio_id,user.id,requestId),'INVALID_AUDIO');run('INSERT INTO messages(id,request_id,sender_id,body,audio_id) VALUES(?,?,?,?,?)',id(),requestId,user.id,text(input.body)?input.body.trim():null,input.audio_id || null);}
+   else if(action==='proposals') {
+    requireThat(user.id===request.worker_id,'FORBIDDEN',403);requireThat(text(input.scope)&&Number.isSafeInteger(input.price_pkr)&&input.price_pkr>=0&&input.price_pkr<=10000000&&typeof input.materials_included==='boolean');
+    run('INSERT INTO proposals(id,request_id,version,scope,price_pkr,materials_included) SELECT ?,?,COALESCE(MAX(version),0)+1,?,?,? FROM proposals WHERE request_id=?',id(),requestId,input.scope.trim(),input.price_pkr,+input.materials_included,requestId);
+   } else if(action==='cancel'||action==='decline') {requireThat(user.id===(action==='cancel'?request.customer_id:request.worker_id),'FORBIDDEN',403);run('UPDATE requests SET status=? WHERE id=?',action==='cancel'?'cancelled':'declined',requestId);send(200,detail(requestId,user));return true;}
+   else return false;
+   run("UPDATE requests SET status='discussing' WHERE id=?",requestId);send(200,detail(requestId,user));return true;
+  }
+ }
+ return false;
+}
 export { id, fail, requireThat, text, body };
