@@ -98,6 +98,7 @@ test("stale proposal, unauthorized acceptance, cancellation and database uniquen
         .run(rid2, p.id, awaitUser(f.db, "customer-b"), f.workerId),
     /UNIQUE/,
   );
+  assert.equal((await f.worker(`/bookings/${accepted.booking.id}/cancel`, {})).status, 403);
   assert.equal((await f.a(`/bookings/${accepted.booking.id}/cancel`, {})).status, 200);
   assert.equal((await f.a("/workers?available=now")).data.length, 1);
 });

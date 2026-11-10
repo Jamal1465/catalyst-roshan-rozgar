@@ -753,7 +753,7 @@ function Conversation({
                   Confirm job completed
                 </button>
               )}
-              {b.status === "confirmed" && (
+              {!isWorker && b.status === "confirmed" && (
                 <button
                   className="text-button"
                   disabled={busy}

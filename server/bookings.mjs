@@ -101,6 +101,7 @@ export function bookingRoutes(ctx, { id, requireThat }) {
         bookingId,
       );
     } else if (action === "cancel") {
+      requireThat(user.id === b.customer_id, "FORBIDDEN", 403);
       requireThat(b.status === "confirmed", "ONLY_UNSTARTED_BOOKINGS_CAN_BE_CANCELLED", 409);
       run("UPDATE bookings SET status='cancelled' WHERE id=?", bookingId);
       run("UPDATE requests SET status='cancelled' WHERE id=?", b.request_id);
