@@ -1,3 +1,4 @@
+import { bookingRoutes } from './bookings.mjs';
 import { createServer } from 'node:http';
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -72,6 +73,7 @@ export function createApp({ databasePath = process.env.DATABASE_PATH || 'data/ro
   return { server, db };
 }
 async function domainRoutes(ctx) {
+ if(bookingRoutes(ctx,{id,requireThat}))return true;
  const {path,method,input,user,one,all,run,send,participant,detail}=ctx;
  if(path==='/api/requests' && method==='GET') {send(200,all('SELECT id FROM requests WHERE customer_id=? OR worker_id=? ORDER BY rowid DESC',user.id,user.id).map(r=>detail(r.id,user)));return true;}
  if(path==='/api/requests' && method==='POST') {
