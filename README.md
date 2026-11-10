@@ -83,9 +83,13 @@ private audio, AI authorization, and post-logout access.
   available.
 - Optional server-side Urdu transcription and grounded profile extraction
   through OpenAI. The draft always requires worker confirmation.
+- Optional customer voice triage suggests a catalog trade from a recorded
+  household problem; the customer must confirm the suggestion before searching.
 - Versioned worker proposals, explicit customer acceptance, idempotent
   confirmation and a database uniqueness guard against double booking.
 - Worker start/finish, customer completion and one authorized persisted review.
+- Completed-job reviews support optional private customer voice audio and up to
+  five descriptive tags.
 
 ## AI and fallback disclosure
 

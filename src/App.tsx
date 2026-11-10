@@ -344,6 +344,8 @@ function Discovery({ onSelect, revision }: { onSelect: (p: Profile) => void; rev
   const [area, setArea] = useState("G-9"),
     [trade, setTrade] = useState("Electrician"),
     [free, setFree] = useState(true),
+    [triage, setTriage] = useState(""),
+    [triageTranscript, setTriageTranscript] = useState(""),
     [workers, setWorkers] = useState<Profile[]>([]),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true);
@@ -385,6 +387,29 @@ function Discovery({ onSelect, revision }: { onSelect: (p: Profile) => void; rev
             </select>
           </div>
         </Field>
+        <div className="card triage">
+          <h2>Not sure which trade you need?</h2>
+          <p className="muted">Describe the problem by voice. We will suggest a trade for you to confirm.</p>
+          <Recorder
+            label="Suggest a trade"
+            onSend={async (blob) => {
+              const audio_id = await upload(blob, undefined, "triage");
+              const result = await api<{ transcript: string; trade: string }>(
+                "/ai/suggest-trade",
+                { audio_id },
+              );
+              setTriage(result.trade);
+              setTriageTranscript(result.transcript);
+              setTrade(result.trade);
+            }}
+          />
+          {triage && (
+            <p className="notice" role="status">
+              Suggested trade: <strong>{triage}</strong>. Confirmed by your selection.
+              {triageTranscript && ` Transcript: ${triageTranscript}`}
+            </p>
+          )}
+        </div>
         <div className="trade-grid">
           {trades.map((t, i) => {
             const Icon = icons[i];
@@ -586,6 +611,8 @@ function Conversation({
     open = ["requested", "discussing"].includes(job.status);
   const [message, setMessage] = useState(""),
     [actionError, setActionError] = useState(""),
+    [reviewAudio, setReviewAudio] = useState(""),
+    [reviewTags, setReviewTags] = useState<string[]>([]),
     [busy, setBusy] = useState(false);
   const mutate = async (path: string, data: unknown) => {
     await api(path, data);
@@ -777,6 +804,8 @@ function Conversation({
                     mutate(`/bookings/${b.id}/reviews`, {
                       rating: Number(d.get("rating")),
                       feedback: d.get("feedback"),
+                      audio_id: reviewAudio || undefined,
+                      tags: reviewTags,
                     })
                   }
                 >
@@ -793,12 +822,46 @@ function Conversation({
                   <Field label="Your feedback (optional)">
                     <textarea name="feedback" maxLength={2000} />
                   </Field>
+                  <p className="field-title">What went well?</p>
+                  <div className="chips">
+                    {["On time", "Good work", "Fair price", "Respectful"].map((tag) => (
+                      <button
+                        type="button"
+                        className={reviewTags.includes(tag) ? "chip selected" : "chip"}
+                        aria-pressed={reviewTags.includes(tag)}
+                        key={tag}
+                        onClick={() =>
+                          setReviewTags((current) =>
+                            current.includes(tag)
+                              ? current.filter((value) => value !== tag)
+                              : [...current, tag],
+                          )
+                        }
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                  <Recorder
+                    label="Attach voice review"
+                    onSend={async (blob) => {
+                      const audioId = await upload(blob, b.id, "review");
+                      setReviewAudio(audioId);
+                    }}
+                  />
                   <button>Publish review</button>
                 </Form>
               )}
               {job.review && (
                 <p className="success">
                   Review saved: {job.review.rating}/5 · {job.review.feedback}
+                  {job.review.audio_id && (
+                    <audio
+                      controls
+                      src={"/api/audio/" + job.review.audio_id}
+                      aria-label="Voice review"
+                    />
+                  )}
                 </p>
               )}
             </div>

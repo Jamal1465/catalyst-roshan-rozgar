@@ -36,7 +36,7 @@ export interface Job {
   messages: { id: string; sender_id: string; body: string | null; audio_id: string | null }[];
   proposals: Proposal[];
   booking: { id: string; status: string; worker_marked_done_at: string | null } | null;
-  review: { rating: number; feedback: string } | null;
+  review: { rating: number; feedback: string; audio_id?: string; tags?: string } | null;
 }
 const errors: Record<string, string> = {
   WORKER_BUSY:
@@ -67,9 +67,12 @@ export async function api<T>(path: string, data?: unknown): Promise<T> {
     );
   return json as T;
 }
-export async function upload(blob: Blob, requestId?: string) {
+export async function upload(blob: Blob, requestId?: string, purpose?: "review" | "triage") {
+  const query = new URLSearchParams();
+  if (requestId) query.set("request_id", requestId);
+  if (purpose) query.set(purpose === "review" ? "booking_id" : "purpose", purpose === "review" ? requestId || "" : purpose);
   const res = await fetch(
-    "/api/audio" + (requestId ? "?request_id=" + encodeURIComponent(requestId) : ""),
+    "/api/audio" + (query.toString() ? "?" + query.toString() : ""),
     { method: "POST", headers: { "Content-Type": blob.type }, body: blob },
   );
   const json = await res.json();

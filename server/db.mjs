@@ -18,5 +18,10 @@ export function openDatabase(path) {
     CREATE TABLE IF NOT EXISTS reviews(id TEXT PRIMARY KEY, booking_id TEXT UNIQUE NOT NULL REFERENCES bookings(id), customer_id TEXT NOT NULL REFERENCES users(id), worker_id TEXT NOT NULL REFERENCES workers(user_id), rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5), feedback TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
     CREATE TABLE IF NOT EXISTS audio(id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id), request_id TEXT REFERENCES requests(id), mime TEXT NOT NULL, data BLOB NOT NULL);
   `);
+  const audioColumns = db.prepare("PRAGMA table_info(audio)").all().map((column) => column.name);
+  if (!audioColumns.includes("purpose")) db.exec("ALTER TABLE audio ADD COLUMN purpose TEXT NOT NULL DEFAULT 'profile'");
+  const reviewColumns = db.prepare("PRAGMA table_info(reviews)").all().map((column) => column.name);
+  if (!reviewColumns.includes("audio_id")) db.exec("ALTER TABLE reviews ADD COLUMN audio_id TEXT REFERENCES audio(id)");
+  if (!reviewColumns.includes("tags")) db.exec("ALTER TABLE reviews ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'");
   return db;
 }

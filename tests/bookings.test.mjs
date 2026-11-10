@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import { fixture } from "./helpers.mjs";
 import { createApp } from "../server/app.mjs";
 const proposal = { scope: "Repair ceiling fan", price_pkr: 1500, materials_included: false };
+const wav = Buffer.alloc(100);
+wav.write("RIFF");
+wav.write("WAVE", 8);
 async function request(f, customer) {
   const r = (
     await customer("/requests", { worker_id: f.workerId, area: "G-9", description: "Fan repair" })
@@ -54,8 +57,26 @@ test("two servers and two customer sessions race: exactly one booking; retry, li
   assert.equal((await f.worker(path + "/complete", {})).status, 403);
   assert.equal((await win(path + "/complete", {})).data.booking.status, "completed");
   assert.equal((await lose(path + "/reviews", { rating: 5, feedback: "" })).status, 404);
+  const customerCookie = (await win("/auth/me")).cookie;
+  const voiceReview = await fetch(
+    f.base + "/api/audio?booking_id=" + booking.id,
+    {
+      method: "POST",
+      headers: { cookie: customerCookie, "Content-Type": "audio/wav" },
+      body: wav,
+    },
+  );
+  assert.equal(voiceReview.status, 201);
+  const voiceReviewId = (await voiceReview.json()).id;
   assert.equal(
-    (await win(path + "/reviews", { rating: 5, feedback: "Fan repaired — demo test" })).status,
+    (
+      await win(path + "/reviews", {
+        rating: 5,
+        feedback: "Fan repaired — demo test",
+        audio_id: voiceReviewId,
+        tags: ["Good work", "Fair price"],
+      })
+    ).status,
     200,
   );
   assert.equal((await win(path + "/reviews", { rating: 4, feedback: "" })).status, 409);

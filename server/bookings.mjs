@@ -120,14 +120,29 @@ export function bookingRoutes(ctx, { id, requireThat }) {
           typeof input.feedback === "string" &&
           input.feedback.length <= 2000,
       );
+      requireThat(
+        !input.audio_id ||
+          (typeof input.audio_id === "string" &&
+            one(
+              "SELECT id FROM audio WHERE id=? AND owner_id=? AND purpose='review'",
+              input.audio_id,
+              user.id,
+            )),
+        "INVALID_AUDIO",
+      );
+      const tags = Array.isArray(input.tags)
+        ? input.tags.filter((tag) => typeof tag === "string" && tag.length <= 40).slice(0, 5)
+        : [];
       run(
-        "INSERT INTO reviews(id,booking_id,customer_id,worker_id,rating,feedback) VALUES(?,?,?,?,?,?)",
+        "INSERT INTO reviews(id,booking_id,customer_id,worker_id,rating,feedback,audio_id,tags) VALUES(?,?,?,?,?,?,?,?)",
         id(),
         bookingId,
         user.id,
         b.worker_id,
         input.rating,
         input.feedback.trim(),
+        input.audio_id || null,
+        JSON.stringify(tags),
       );
     }
     db.exec("COMMIT");

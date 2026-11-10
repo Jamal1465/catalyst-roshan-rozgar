@@ -59,6 +59,28 @@ test("explicit test provider returns uncertain draft without auto-publishing", a
       draft: { name: "Aslam", years_experience: null, services: [], uncertain_fields: [] },
     }),
   });
+  test("customer trade triage returns a confirmable suggestion", async (t) => {
+    const f = await fixture(t, {
+      ai: async (_audio, purpose) => ({
+        transcript: "پنکھا خراب ہے",
+        trade: purpose === "triage" ? "Electrician" : undefined,
+        draft: { name: null, years_experience: null, services: [], uncertain_fields: [] },
+      }),
+    });
+    const cookie = (await f.a("/auth/me")).cookie;
+    const audio = await fetch(f.base + "/api/audio?purpose=triage", {
+      method: "POST",
+      headers: { cookie, "Content-Type": "audio/wav" },
+      body: wav,
+    });
+    assert.equal(audio.status, 201);
+    const { id } = await audio.json();
+    const suggestion = await f.a("/ai/suggest-trade", { audio_id: id });
+    assert.equal(suggestion.status, 200);
+    assert.equal(suggestion.data.trade, "Electrician");
+    assert.equal(suggestion.data.requires_confirmation, true);
+    assert.equal((await f.worker("/ai/suggest-trade", { audio_id: id })).status, 403);
+  });
   const cookie = (await f.worker("/auth/me")).cookie;
   const audio = await (await upload(f, cookie)).json();
   const result = (await f.worker("/ai/transcribe-profile", { audio_id: audio.id })).data;
