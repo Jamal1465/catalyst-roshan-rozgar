@@ -44,7 +44,7 @@ const errors: Record<string, string> = {
   STALE_PROPOSAL:
     "The price proposal changed. Refresh and review the latest version before accepting.",
   AI_NOT_CONFIGURED:
-    "Voice transcription is not configured. You can replay your recording and fill in the profile below.",
+    "Voice transcription is not configured. You can choose a trade manually below or retry later.",
   SIGN_IN_REQUIRED: "Please sign in to continue.",
   INVALID_CREDENTIALS: "The username or password is incorrect.",
   USERNAME_TAKEN: "That username is already taken.",
@@ -67,10 +67,16 @@ export async function api<T>(path: string, data?: unknown): Promise<T> {
     );
   return json as T;
 }
-export async function upload(blob: Blob, requestId?: string, purpose?: "review" | "triage") {
+export async function upload(
+  blob: Blob,
+  requestId?: string,
+  purpose?: "review" | "triage",
+  bookingId?: string,
+) {
   const query = new URLSearchParams();
   if (requestId) query.set("request_id", requestId);
-  if (purpose) query.set(purpose === "review" ? "booking_id" : "purpose", purpose === "review" ? requestId || "" : purpose);
+  if (purpose === "review") query.set("booking_id", bookingId || "");
+  if (purpose === "triage") query.set("purpose", purpose);
   const res = await fetch(
     "/api/audio" + (query.toString() ? "?" + query.toString() : ""),
     { method: "POST", headers: { "Content-Type": blob.type }, body: blob },

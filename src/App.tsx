@@ -19,10 +19,19 @@ import {
 import { api, upload, type User, type Profile, type Job } from "./api";
 import { Recorder, ReadAloud } from "./Recorder";
 type Lang = "en" | "roman" | "ur";
-type Screen = "welcome" | "discover" | "profile" | "jobs" | "detail" | "conversation" | "auth";
+type Screen =
+  | "welcome"
+  | "dashboard"
+  | "discover"
+  | "profile"
+  | "jobs"
+  | "detail"
+  | "conversation"
+  | "auth";
 type RouteContext = { id?: string; role?: User["role"] };
 function readRoute(): { screen: Screen; id?: string; role?: User["role"] } {
   const path = window.location.pathname.replace(/\/+$/, "") || "/";
+  if (path === "/dashboard") return { screen: "dashboard" };
   if (path === "/discover") return { screen: "discover" };
   if (path === "/profile") return { screen: "profile" };
   if (path === "/jobs") return { screen: "jobs" };
@@ -76,6 +85,77 @@ function Heading({ tag, title, children }: { tag: string; title: string; childre
       <h1>{title}</h1>
       {children && <p className="muted">{children}</p>}
     </div>
+  );
+}
+function Dashboard({
+  user,
+  jobs,
+  profile,
+  onOpenJob,
+  onNavigate,
+}: {
+  user: User;
+  jobs: Job[];
+  profile: Profile | null;
+  onOpenJob: (id: string) => void;
+  onNavigate: (screen: Screen) => void;
+}) {
+  const active = jobs.filter((job) => !["completed", "cancelled", "declined"].includes(job.status));
+  const completed = jobs.filter((job) => job.booking?.status === "completed").length;
+  const reviews = profile?.review_count || 0;
+  return (
+    <>
+      <Heading tag="YOUR DASHBOARD" title={`Welcome, ${user.username}.`}>
+        Your requests, work and reputation at a glance.
+      </Heading>
+      <div className="dashboard-stats">
+        <div className="card">
+          <span className="eyebrow">ACTIVE</span>
+          <strong>{active.length}</strong>
+          <p>Open requests and bookings</p>
+        </div>
+        <div className="card">
+          <span className="eyebrow">COMPLETED</span>
+          <strong>{user.role === "worker" ? profile?.completed_jobs || 0 : completed}</strong>
+          <p>Jobs completed</p>
+        </div>
+        <div className="card">
+          <span className="eyebrow">{user.role === "worker" ? "REPUTATION" : "REVIEWS"}</span>
+          <strong>{user.role === "worker" && profile?.review_count ? Number(profile.rating).toFixed(1) : reviews}</strong>
+          <p>{user.role === "worker" ? `${reviews} customer reviews` : "Reviews received"}</p>
+        </div>
+      </div>
+      <section className="card dashboard-panel">
+        <div className="section-heading">
+          <h2>Recent activity</h2>
+          <button className="secondary" onClick={() => onNavigate("jobs")}>
+            View all work
+          </button>
+        </div>
+        {jobs.length ? (
+          <div className="job-list">
+            {jobs.slice(0, 5).map((job) => (
+              <button className="job-row" key={job.id} onClick={() => onOpenJob(job.id)}>
+                <span className="job-icon">
+                  <BriefcaseBusiness />
+                </span>
+                <span>
+                  <b>{job.description}</b>
+                  <small>{job.worker_name} · {job.area}</small>
+                </span>
+                <span className="pill">{job.booking?.status || job.status}</span>
+                <ArrowRight size={18} />
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="empty">
+            <MessageCircle />
+            <p>No activity yet. Start by finding a worker or publishing your profile.</p>
+          </div>
+        )}
+      </section>
+    </>
   );
 }
 function Form({
@@ -845,7 +925,7 @@ function Conversation({
                   <Recorder
                     label="Attach voice review"
                     onSend={async (blob) => {
-                      const audioId = await upload(blob, b.id, "review");
+                      const audioId = await upload(blob, undefined, "review", b.id);
                       setReviewAudio(audioId);
                     }}
                   />
@@ -945,18 +1025,18 @@ export default function App() {
       .then((r) => {
         setUser(r.user);
         const route = readRoute();
-        if (!r.user && ["profile", "jobs", "conversation"].includes(route.screen)) {
+        if (!r.user && ["dashboard", "profile", "jobs", "conversation"].includes(route.screen)) {
           setScreen("welcome");
         } else if (route.screen === "auth") {
           setRole(route.role || "customer");
         } else if (r.user && route.screen === "welcome") {
-          setScreen(r.user.role === "worker" ? "profile" : "discover");
+          setScreen("dashboard");
         } else if (
           r.user &&
           ((r.user.role === "worker" && route.screen === "discover") ||
             (r.user.role === "customer" && route.screen === "profile"))
         ) {
-          setScreen(r.user.role === "worker" ? "profile" : "discover");
+          setScreen("dashboard");
         }
       })
       .catch((e) => setError(e.message))
@@ -1002,7 +1082,7 @@ export default function App() {
         <button
           className="brand"
           onClick={() =>
-            setScreen(user ? (user.role === "worker" ? "profile" : "discover") : "welcome")
+            setScreen(user ? "dashboard" : "welcome")
           }
         >
           <span className="brand-mark">
@@ -1053,6 +1133,13 @@ export default function App() {
       </div>
       {user && (
         <nav aria-label="Main navigation">
+          <button
+            className={screen === "dashboard" ? "active" : ""}
+            onClick={() => setScreen("dashboard")}
+          >
+            <Sun size={18} />
+            Dashboard
+          </button>
           {user.role === "customer" ? (
             <button
               className={screen === "discover" ? "active" : ""}
@@ -1184,7 +1271,7 @@ export default function App() {
                 role={role}
                 onDone={(u) => {
                   setUser(u);
-                  setScreen(u.role === "worker" ? "profile" : "discover");
+                  setScreen("dashboard");
                 }}
               />
             )}
@@ -1195,6 +1282,18 @@ export default function App() {
                   setSelected(p);
                   setScreen("detail", { id: p.user_id });
                 }}
+              />
+            )}
+            {screen === "dashboard" && user && (
+              <Dashboard
+                user={user}
+                jobs={jobs}
+                profile={profile}
+                onOpenJob={(id) => {
+                  setJobId(id);
+                  setScreen("conversation", { id });
+                }}
+                onNavigate={setScreen}
               />
             )}
             {screen === "detail" && selected && (

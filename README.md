@@ -90,6 +90,8 @@ private audio, AI authorization, and post-logout access.
 - Worker start/finish, customer completion and one authorized persisted review.
 - Completed-job reviews support optional private customer voice audio and up to
   five descriptive tags.
+- Authenticated user dashboard with active work, completed jobs, reputation and
+  recent activity links.
 
 ## AI and fallback disclosure
 
@@ -258,6 +260,7 @@ routes are supported and survive refresh:
 | Route | Purpose |
 |---|---|
 | `/` | Welcome page |
+| `/dashboard` | Authenticated user summary and recent activity |
 | `/discover` | Customer worker discovery |
 | `/workers/:id` | Public worker profile |
 | `/auth/customer` | Customer sign-in/register |
