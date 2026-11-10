@@ -225,6 +225,7 @@ function ProfileEditor({
           <Form
             onSubmit={async () => {
               if (!confirmed) throw new Error("Please confirm that these details are correct.");
+              if (!selected.length) throw new Error("Choose at least one service area.");
               await api("/profile", {
                 name,
                 trade,
@@ -496,6 +497,8 @@ function WorkerDetail({
         <button onClick={onAuth}>
           Sign in to request <ArrowRight size={18} />
         </button>
+      ) : user.role !== "customer" ? (
+        <p className="notice">Only customer accounts can send job requests.</p>
       ) : (
         <Form
           onSubmit={async (d) =>
