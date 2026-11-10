@@ -27,6 +27,24 @@ The local database is `data/roshan.sqlite`. Set `DATABASE_PATH` to use another
 database. Copy `.env.example` to `.env` for optional configuration; never
 commit `.env`.
 
+### Demo accounts and live end-to-end test
+
+With the API running from `npm run dev`, seed four idempotent local demo
+accounts:
+
+```sh
+npm run seed:demo
+npm run e2e:demo
+```
+
+The accounts are `demo-aslam` and `demo-sana` (workers), plus
+`demo-customer-a` and `demo-customer-b` (customers). The local-only password
+for all four is `Roshan-Demo-2026!`. These are demo credentials, not production
+secrets; do not reuse them outside the local database. The end-to-end command
+logs in as every account, verifies role identity, checks discovery, creates
+participant messages, publishes proposals, confirms bookings, runs the
+worker/customer lifecycle, writes reviews, and verifies restored availability.
+
 ## What is functional
 
 - Server-side account registration/login with HttpOnly session cookies.
