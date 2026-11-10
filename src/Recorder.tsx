@@ -8,6 +8,7 @@ type SpeechRecognitionLike = {
   continuous: boolean;
   onresult: ((event: SpeechRecognitionEventLike) => void) | null;
   onerror: (() => void) | null;
+  onend: (() => void) | null;
 };
 type SpeechRecognitionEventLike = {
   results: ArrayLike<ArrayLike<{ transcript: string }>>;
@@ -30,6 +31,7 @@ export function Recorder({
     mounted = useRef(true);
   const transcript = useRef("");
   const recognition = useRef<SpeechRecognitionLike | null>(null);
+  const recognitionDone = useRef<Promise<void>>(Promise.resolve());
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -52,7 +54,11 @@ export function Recorder({
   function stop() {
     if (timer.current) clearTimeout(timer.current);
     if (recorder.current?.state === "recording") recorder.current.stop();
-    recognition.current?.stop();
+    try {
+      recognition.current?.stop();
+    } catch {
+      recognitionDone.current = Promise.resolve();
+    }
   }
   async function start() {
     setError("");
@@ -103,6 +109,10 @@ export function Recorder({
         ).webkitSpeechRecognition;
       if (SpeechRecognition) {
         const speech = new SpeechRecognition();
+        let finishRecognition!: () => void;
+        recognitionDone.current = new Promise((resolve) => {
+          finishRecognition = resolve;
+        });
         speech.lang = "ur-PK";
         speech.interimResults = false;
         speech.continuous = true;
@@ -112,9 +122,14 @@ export function Recorder({
             .join(" ")
             .trim();
         };
-        speech.onerror = () => undefined;
+        speech.onerror = () => finishRecognition();
+        speech.onend = () => finishRecognition();
         recognition.current = speech;
-        speech.start();
+        try {
+          speech.start();
+        } catch {
+          finishRecognition();
+        }
       }
       setBlob(null);
       setRecording(true);
@@ -161,6 +176,7 @@ export function Recorder({
                 setPending(true);
                 setError("");
                 try {
+                  await recognitionDone.current;
                   await onSend(blob, transcript.current || undefined);
                   setBlob(null);
                 } catch (e) {

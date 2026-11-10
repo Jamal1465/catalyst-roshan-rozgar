@@ -92,11 +92,18 @@ test("explicit test provider returns uncertain draft without auto-publishing", a
 
 test("customer voice transcript classifies a trade without external AI", async (t) => {
   const f = await fixture(t);
-  const result = await f.a("/ai/suggest-trade", {
-    transcript: "میرے گھر کا پنکھا خراب ہے اور سوئچ بھی نہیں چل رہا",
-  });
-  assert.equal(result.status, 200);
-  assert.equal(result.data.trade, "Electrician");
-  assert.equal(result.data.requires_confirmation, true);
-  assert.match(result.data.transcript, /پنکھا/);
+  const examples = [
+    ["Electrician", "میرے گھر کا پنکھا خراب ہے اور سوئچ بھی نہیں چل رہا"],
+    ["Plumber", "نل لیک ہو رہا ہے، پانی کی پائپ ٹھیک کرنی ہے"],
+    ["AC technician", "AC کی cooling خراب ہے"],
+    ["Carpenter", "لکڑی کا دروازہ اور furniture بنوانا ہے"],
+    ["Mechanic", "گاڑی کا engine خراب ہے"],
+  ];
+  for (const [trade, transcript] of examples) {
+    const result = await f.a("/ai/suggest-trade", { transcript });
+    assert.equal(result.status, 200);
+    assert.equal(result.data.trade, trade);
+    assert.equal(result.data.requires_confirmation, true);
+    assert.equal(result.data.transcript, transcript);
+  }
 });

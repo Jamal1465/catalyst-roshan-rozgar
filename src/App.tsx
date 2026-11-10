@@ -481,10 +481,10 @@ function Discovery({ onSelect, revision }: { onSelect: (p: Profile) => void; rev
           <Recorder
             label="Suggest a trade"
             onSend={async (blob, transcript) => {
-              const audio_id = await upload(blob, undefined, "triage");
+              const audio_id = transcript ? undefined : await upload(blob, undefined, "triage");
               const result = await api<{ transcript: string; trade: string }>(
                 "/ai/suggest-trade",
-                transcript ? { audio_id, transcript } : { audio_id },
+                transcript ? { transcript } : { audio_id },
               );
               setTriage(result.trade);
               setTriageTranscript(result.transcript);
