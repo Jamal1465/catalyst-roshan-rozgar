@@ -4,6 +4,9 @@ const keywords = {
   Electrician: [
     "electric",
     "electrician",
+    "الیکٹریشن",
+    "الیکٹرشن",
+    "الیکٹریشین",
     "bijli",
     "بجلی",
     "fan",
@@ -13,7 +16,21 @@ const keywords = {
     "wiring",
     "وائرنگ",
   ],
-  Plumber: ["plumb", "nal", "نل", "پانی", "water", "pipe", "پائپ", "leak", "لیک", "tap"],
+  Plumber: [
+    "plumb",
+    "plumber",
+    "plumbing",
+    "پلمبر",
+    "nal",
+    "نل",
+    "پانی",
+    "water",
+    "pipe",
+    "پائپ",
+    "leak",
+    "لیک",
+    "tap",
+  ],
   "AC technician": [
     "ac",
     "air conditioner",
@@ -27,13 +44,24 @@ const keywords = {
   Mechanic: ["mechanic", "گاڑی", "car", "bike", "موٹر", "motor", "engine", "انجن", "automobile"],
 };
 
+function words(text) {
+  return text
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[يى]/gu, "ی")
+    .replace(/ك/gu, "ک")
+    .replace(/\p{M}/gu, "")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
 export function suggestTradeFromTranscript(transcript) {
   if (typeof transcript !== "string" || !transcript.trim()) return null;
-  const text = transcript.toLocaleLowerCase();
+  const text = ` ${words(transcript)} `;
   const matches = TRADES.map((trade) => ({
     trade,
     score: keywords[trade].reduce(
-      (score, keyword) => score + (text.includes(keyword.toLocaleLowerCase()) ? 1 : 0),
+      (score, keyword) => score + (text.includes(` ${words(keyword)} `) ? 1 : 0),
       0,
     ),
   }))

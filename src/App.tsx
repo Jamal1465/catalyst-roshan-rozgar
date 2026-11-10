@@ -436,16 +436,25 @@ function Discovery({ onSelect, revision }: { onSelect: (p: Profile) => void; rev
     [free, setFree] = useState(true),
     [triage, setTriage] = useState(""),
     [triageTranscript, setTriageTranscript] = useState(""),
+    [applied, setApplied] = useState(false),
     [workers, setWorkers] = useState<Profile[]>([]),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true);
+  async function suggest(input: { transcript?: string; audio_id?: string }) {
+    setTriage("");
+    setApplied(false);
+    if (input.transcript) setTriageTranscript(input.transcript);
+    const result = await api<{ transcript: string; trade: string }>("/ai/suggest-trade", input);
+    setTriage(result.trade);
+    setTriageTranscript(result.transcript);
+  }
   useEffect(() => {
     let live = true;
     setLoading(true);
     setError("");
     const areaQuery = area === "all" ? "" : `&area=${encodeURIComponent(area)}`;
     api<Profile[]>(
-      `/workers?trade=${encodeURIComponent(trade)}${areaQuery}${free ? "&available=now" : ""}`,
+      `/workers?${trade ? "trade=" + encodeURIComponent(trade) : ""}${areaQuery}${free ? "&available=now" : ""}`,
     )
       .then((rows) => {
         if (live) setWorkers(rows);
@@ -486,22 +495,55 @@ function Discovery({ onSelect, revision }: { onSelect: (p: Profile) => void; rev
             label="Suggest a trade"
             onSend={async (blob, transcript) => {
               const audio_id = transcript ? undefined : await upload(blob, undefined, "triage");
-              const result = await api<{ transcript: string; trade: string }>(
-                "/ai/suggest-trade",
-                transcript ? { transcript } : { audio_id },
-              );
-              setTriage(result.trade);
-              setTriageTranscript(result.transcript);
-              setTrade(result.trade);
+              await suggest(transcript ? { transcript } : { audio_id });
             }}
           />
+          <Form onSubmit={async () => suggest({ transcript: triageTranscript })}>
+            <Field label="Type or correct the problem description">
+              <input
+                required
+                maxLength={2000}
+                dir="auto"
+                value={triageTranscript}
+                onChange={(e) => {
+                  setTriageTranscript(e.target.value);
+                  setTriage("");
+                  setApplied(false);
+                }}
+              />
+            </Field>
+            <button className="secondary">Suggest from text</button>
+          </Form>
           {triage && (
-            <p className="notice" role="status">
-              Suggested trade: <strong>{triage}</strong>. Confirmed by your selection.
-              {triageTranscript && ` Transcript: ${triageTranscript}`}
-            </p>
+            <div className="notice">
+              <p role="status">
+                {applied ? "Searching for" : "Suggested trade:"} <strong>{triage}</strong>
+              </p>
+              {!applied && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTrade(triage);
+                    setApplied(true);
+                  }}
+                >
+                  Search for {triage}
+                </button>
+              )}
+            </div>
           )}
         </div>
+        <button
+          className="secondary"
+          type="button"
+          aria-pressed={!trade}
+          onClick={() => {
+            setTrade("");
+            setApplied(false);
+          }}
+        >
+          All trades
+        </button>
         <div className="trade-grid">
           {trades.map((t, i) => {
             const Icon = icons[i];
@@ -510,7 +552,10 @@ function Discovery({ onSelect, revision }: { onSelect: (p: Profile) => void; rev
                 key={t}
                 className={trade === t ? "trade selected" : "trade"}
                 aria-pressed={trade === t}
-                onClick={() => setTrade(t)}
+                onClick={() => {
+                  setTrade(t);
+                  setApplied(false);
+                }}
               >
                 <Icon />
                 <span>{t}</span>
@@ -570,10 +615,10 @@ function Discovery({ onSelect, revision }: { onSelect: (p: Profile) => void; rev
                 : "No reviews yet"}
             </div>
             <div className="card-footer">
+              <span>{area === "all" ? `Serves ${w.areas.join(" · ")}` : `Serves ${area}`}</span>
               <span>
-                {area === "all" ? `Serves ${w.areas.join(" · ")}` : `Serves ${area}`} · Trade match
+                View profile & reviews <ArrowRight size={17} />
               </span>
-              <ArrowRight size={20} />
             </div>
           </button>
         ))}
@@ -631,6 +676,16 @@ function WorkerDetail({
       <p>
         <MapPin size={16} /> {profile.areas.join(" · ")}
       </p>
+      <h2>Customer reviews</h2>
+      {profile.reviews?.length ? (
+        profile.reviews.map((r, i) => (
+          <blockquote key={i}>
+            <b>{r.rating}/5</b> {r.feedback || "Rating only"}
+          </blockquote>
+        ))
+      ) : (
+        <p className="muted">No reviews yet. Feedback comes from completed jobs.</p>
+      )}
       <h2>Request this worker</h2>
       {!user ? (
         <button onClick={onAuth}>
@@ -670,16 +725,6 @@ function WorkerDetail({
           </button>
           <p className="muted">A request is not a booking. Review and accept a price first.</p>
         </Form>
-      )}
-      <h2>Customer feedback</h2>
-      {profile.reviews?.length ? (
-        profile.reviews.map((r, i) => (
-          <blockquote key={i}>
-            <b>{r.rating}/5</b> {r.feedback || "Rating only"}
-          </blockquote>
-        ))
-      ) : (
-        <p className="muted">No reviews yet. Feedback comes from completed jobs.</p>
       )}
     </section>
   );

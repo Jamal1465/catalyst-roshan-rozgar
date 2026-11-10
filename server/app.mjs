@@ -1,3 +1,4 @@
+import { suggestTradeFromTranscript } from "./trade-suggestion.mjs";
 import { audioRoutes } from "./audio.mjs";
 import { bookingRoutes } from "./bookings.mjs";
 import { createServer } from "node:http";
@@ -226,6 +227,16 @@ export function createApp({
             row.user_id,
           ),
         });
+      }
+      if (
+        path === "/api/ai/suggest-trade" &&
+        method === "POST" &&
+        typeof input?.transcript === "string"
+      ) {
+        const transcript = input.transcript.trim().slice(0, 2000);
+        const trade = suggestTradeFromTranscript(transcript);
+        requireThat(trade, "TRADE_SUGGESTION_UNAVAILABLE", 422);
+        return send(200, { transcript, trade, requires_confirmation: true });
       }
       requireThat(user, "SIGN_IN_REQUIRED", 401);
       if (path === "/api/auth/logout" && method === "POST") {

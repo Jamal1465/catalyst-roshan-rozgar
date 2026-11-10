@@ -1,5 +1,4 @@
 import { TRADES } from "./db.mjs";
-import { suggestTradeFromTranscript } from "./trade-suggestion.mjs";
 
 const extensions = {
   "audio/webm": "webm",
@@ -175,20 +174,14 @@ export async function audioRoutes(ctx, { id, requireThat, body }) {
   }
   if (path === "/api/ai/suggest-trade" && method === "POST") {
     requireThat(user.role === "customer", "FORBIDDEN", 403);
-    let result;
-    if (typeof input.transcript === "string" && input.transcript.trim()) {
-      const transcript = input.transcript.trim().slice(0, 2000);
-      result = { transcript, trade: suggestTradeFromTranscript(transcript) };
-    } else {
-      requireThat(typeof input.audio_id === "string");
-      const audio = one(
-        "SELECT * FROM audio WHERE id=? AND owner_id=? AND purpose='triage'",
-        input.audio_id,
-        user.id,
-      );
-      requireThat(audio, "NOT_FOUND", 404);
-      result = await (ai || transcribeProfile)(audio, "triage");
-    }
+    requireThat(typeof input.audio_id === "string");
+    const audio = one(
+      "SELECT * FROM audio WHERE id=? AND owner_id=? AND purpose='triage'",
+      input.audio_id,
+      user.id,
+    );
+    requireThat(audio, "NOT_FOUND", 404);
+    const result = await (ai || transcribeProfile)(audio, "triage");
     const trade = result?.trade || result?.draft?.trade;
     requireThat(
       typeof result?.transcript === "string" && TRADES.includes(trade),

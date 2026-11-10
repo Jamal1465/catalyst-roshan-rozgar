@@ -111,6 +111,9 @@ test("explicit test provider returns uncertain draft without auto-publishing", a
 test("customer voice transcript classifies a trade without external AI", async (t) => {
   const f = await fixture(t);
   const examples = [
+    ["Electrician", "الیکٹریشن چاہیے"],
+    ["Electrician", "اليكٹريشن چاہیے"],
+    ["Carpenter", "carpenter please"],
     ["Electrician", "میرے گھر کا پنکھا خراب ہے اور سوئچ بھی نہیں چل رہا"],
     ["Plumber", "نل لیک ہو رہا ہے، پانی کی پائپ ٹھیک کرنی ہے"],
     ["AC technician", "AC کی cooling خراب ہے"],
@@ -118,7 +121,7 @@ test("customer voice transcript classifies a trade without external AI", async (
     ["Mechanic", "گاڑی کا engine خراب ہے"],
   ];
   for (const [trade, transcript] of examples) {
-    const result = await f.a("/ai/suggest-trade", { transcript });
+    const result = await f.client()("/ai/suggest-trade", { transcript });
     assert.equal(result.status, 200);
     assert.equal(result.data.trade, trade);
     assert.equal(result.data.requires_confirmation, true);
