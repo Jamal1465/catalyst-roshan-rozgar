@@ -135,6 +135,10 @@ completion, review eligibility and persisted availability.
 
 ## Provenance and credits
 
+OpenAI Codex assisted with development and testing. Earlier development
+commits carried GitHub Copilot co-author metadata. The app’s optional live
+voice features use OpenAI for transcription and structured extraction.
+
 The supplied Figma Make export is preserved as provenance in
 [`docs/reference`](docs/reference). Its source prototype is not treated as a
 functional backend. No external credentials or private assets are included.
