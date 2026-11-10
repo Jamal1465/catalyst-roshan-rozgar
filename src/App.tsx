@@ -19,6 +19,19 @@ import {
 import { api, upload, type User, type Profile, type Job } from "./api";
 import { Recorder, ReadAloud } from "./Recorder";
 type Lang = "en" | "roman" | "ur";
+type Screen = "welcome" | "discover" | "profile" | "jobs" | "detail" | "conversation" | "auth";
+type RouteContext = { id?: string; role?: User["role"] };
+function readRoute(): { screen: Screen; id?: string; role?: User["role"] } {
+  const path = window.location.pathname.replace(/\/+$/, "") || "/";
+  if (path === "/discover") return { screen: "discover" };
+  if (path === "/profile") return { screen: "profile" };
+  if (path === "/jobs") return { screen: "jobs" };
+  if (path.startsWith("/workers/")) return { screen: "detail", id: path.slice(9) };
+  if (path.startsWith("/requests/")) return { screen: "conversation", id: path.slice(10) };
+  if (path === "/auth/worker") return { screen: "auth", role: "worker" };
+  if (path === "/auth/customer") return { screen: "auth", role: "customer" };
+  return { screen: "welcome" };
+}
 const trades = ["Electrician", "Plumber", "AC technician", "Carpenter", "Mechanic"];
 const areas = ["G-9", "G-10", "F-10", "I-8", "Satellite Town", "Saddar"];
 const icons = [Zap, Droplets, Wind, Hammer, Settings];
@@ -805,15 +818,32 @@ export default function App() {
   const [lang, setLang] = useState<Lang>("en"),
     [user, setUser] = useState<User | null>(null),
     [ready, setReady] = useState(false),
-    [screen, setScreen] = useState("welcome"),
+    [screen, setScreenState] = useState<Screen>(() => readRoute().screen),
     [role, setRole] = useState<User["role"]>("customer"),
     [profile, setProfile] = useState<Profile | null>(null),
     [jobs, setJobs] = useState<Job[]>([]),
     [selected, setSelected] = useState<Profile | null>(null),
-    [jobId, setJobId] = useState(""),
+    [jobId, setJobId] = useState(() => {
+      const route = readRoute();
+      return route.screen === "conversation" ? route.id || "" : "";
+    }),
     [error, setError] = useState(""),
     [revision, setRevision] = useState(0);
   const t = copy[lang];
+  function setScreen(next: Screen, context: RouteContext = {}) {
+    setScreenState(next);
+    const path =
+      next === "welcome"
+        ? "/"
+        : next === "auth"
+          ? `/auth/${context.role || role}`
+          : next === "detail"
+            ? `/workers/${context.id || selected?.user_id || ""}`
+            : next === "conversation"
+              ? `/requests/${context.id || jobId}`
+              : `/${next}`;
+    if (window.location.pathname !== path) window.history.pushState({}, "", path);
+  }
   const refresh = useCallback(async () => {
     if (!user) return;
     const [j, p] = await Promise.all([
@@ -825,10 +855,33 @@ export default function App() {
     setRevision((v) => v + 1);
   }, [user]);
   useEffect(() => {
+    const handlePopState = () => {
+      const route = readRoute();
+      setScreenState(route.screen);
+      if (route.role) setRole(route.role);
+      if (route.id && route.screen === "conversation") setJobId(route.id);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+  useEffect(() => {
     api<{ user: User | null }>("/auth/me")
       .then((r) => {
         setUser(r.user);
-        if (r.user) setScreen(r.user.role === "worker" ? "profile" : "discover");
+        const route = readRoute();
+        if (!r.user && ["profile", "jobs", "conversation"].includes(route.screen)) {
+          setScreen("welcome");
+        } else if (route.screen === "auth") {
+          setRole(route.role || "customer");
+        } else if (r.user && route.screen === "welcome") {
+          setScreen(r.user.role === "worker" ? "profile" : "discover");
+        } else if (
+          r.user &&
+          ((r.user.role === "worker" && route.screen === "discover") ||
+            (r.user.role === "customer" && route.screen === "profile"))
+        ) {
+          setScreen(r.user.role === "worker" ? "profile" : "discover");
+        }
       })
       .catch((e) => setError(e.message))
       .finally(() => setReady(true));
@@ -849,12 +902,19 @@ export default function App() {
     };
   }, [user, refresh]);
   useEffect(() => {
+    const route = readRoute();
+    if (screen !== "detail" || !route.id || selected?.user_id === route.id) return;
+    api<Profile>("/workers/" + route.id)
+      .then(setSelected)
+      .catch((e) => setError(e.message));
+  }, [screen, selected?.user_id]);
+  useEffect(() => {
     document.documentElement.lang = lang === "ur" ? "ur" : lang === "roman" ? "ur-Latn" : "en";
     document.documentElement.dir = lang === "ur" ? "rtl" : "ltr";
   }, [lang]);
   function auth(r: User["role"]) {
     setRole(r);
-    setScreen("auth");
+    setScreen("auth", { role: r });
   }
   const job = jobs.find((j) => j.id === jobId);
   return (
@@ -1057,7 +1117,7 @@ export default function App() {
                 revision={revision}
                 onSelect={(p) => {
                   setSelected(p);
-                  setScreen("detail");
+                  setScreen("detail", { id: p.user_id });
                 }}
               />
             )}
@@ -1069,7 +1129,7 @@ export default function App() {
                 onRequest={(j) => {
                   setJobs((old) => [j, ...old]);
                   setJobId(j.id);
-                  setScreen("conversation");
+                  setScreen("conversation", { id: j.id });
                 }}
               />
             )}
@@ -1094,7 +1154,7 @@ export default function App() {
                         key={j.id}
                         onClick={() => {
                           setJobId(j.id);
-                          setScreen("conversation");
+                          setScreen("conversation", { id: j.id });
                         }}
                       >
                         <span className="job-icon">

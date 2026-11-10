@@ -202,6 +202,27 @@ API and configure the Vite proxy to match before starting a second instance.
 An `EADDRINUSE` message means another instance is already listening; it is not
 an application-level test result.
 
+## URL routing
+
+The UI uses the browser History API rather than a third-party router. These
+routes are supported and survive refresh:
+
+| Route | Purpose |
+|---|---|
+| `/` | Welcome page |
+| `/discover` | Customer worker discovery |
+| `/workers/:id` | Public worker profile |
+| `/auth/customer` | Customer sign-in/register |
+| `/auth/worker` | Worker sign-in/register |
+| `/profile` | Authenticated worker profile editor |
+| `/jobs` | Authenticated request list |
+| `/requests/:id` | Authenticated participant conversation |
+
+The Node server falls back to the built `index.html` for non-API paths, so
+direct links work in the production-style server as well as Vite development.
+Server authorization still protects authenticated routes and request data;
+the URL is only navigation state, never a permission boundary.
+
 ## Repository map
 
 ```text
