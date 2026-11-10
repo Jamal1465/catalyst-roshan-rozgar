@@ -55,8 +55,14 @@ test("audio drafts are private, shared notes require participation, invalid uplo
 test("explicit test provider returns uncertain draft without auto-publishing", async (t) => {
   const f = await fixture(t, {
     ai: async () => ({
-      transcript: "Test fixture, not real AI",
-      draft: { name: "Aslam", years_experience: null, services: [], uncertain_fields: [] },
+      transcript: "میرا نام اسلم ہے اور میں نل کی مرمت کرتا ہوں",
+      draft: {
+        name: "اسلم",
+        trade: "Plumber",
+        years_experience: null,
+        services: ["نل کی مرمت"],
+        uncertain_fields: [],
+      },
     }),
   });
   test("customer trade triage returns a confirmable suggestion", async (t) => {
@@ -85,9 +91,21 @@ test("explicit test provider returns uncertain draft without auto-publishing", a
   const audio = await (await upload(f, cookie)).json();
   const result = (await f.worker("/ai/transcribe-profile", { audio_id: audio.id })).data;
   assert.equal(result.requires_confirmation, true);
+  assert.equal(result.draft.trade, "Plumber");
+  assert.deepEqual(result.draft.services, ["نل کی مرمت"]);
   assert.equal(result.draft.years_experience, null);
   assert.ok(result.draft.uncertain_fields.includes("years_experience"));
-  assert.equal((await f.worker("/profile")).data.years_experience, 8);
+  assert.equal((await f.worker("/profile")).data.trade, "Electrician");
+  await f.worker("/profile", {
+    ...f.profile,
+    name: result.draft.name,
+    trade: result.draft.trade,
+    services: result.draft.services,
+    years_experience: result.draft.years_experience,
+  });
+  const { data: matches } = await f.a("/workers?trade=Plumber&area=G-9&available=now");
+  assert.equal(matches[0].user_id, f.workerId);
+  assert.deepEqual(matches[0].services, ["نل کی مرمت"]);
 });
 
 test("customer voice transcript classifies a trade without external AI", async (t) => {

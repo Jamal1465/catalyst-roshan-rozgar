@@ -260,7 +260,7 @@ function ProfileEditor({
   lang: Lang;
 }) {
   const [name, setName] = useState(profile?.name || ""),
-    [trade, setTrade] = useState(profile?.trade || trades[0]),
+    [trade, setTrade] = useState(profile?.trade || ""),
     [years, setYears] = useState(profile?.years_experience?.toString() || ""),
     [services, setServices] = useState(profile?.services.join("\n") || ""),
     [selected, setSelected] = useState<string[]>(profile?.areas || []),
@@ -291,11 +291,14 @@ function ProfileEditor({
                 draft: {
                   name: string | null;
                   years_experience: number | null;
+                  trade: string | null;
                   services: string[];
                   uncertain_fields: string[];
                 };
               }>("/ai/transcribe-profile", { audio_id });
               setName(result.draft.name || "");
+              setTrade(result.draft.trade || "");
+              setSaved(false);
               setYears(result.draft.years_experience?.toString() || "");
               setServices(result.draft.services.join("\n"));
               setTranscript(result.transcript);
@@ -356,7 +359,8 @@ function ProfileEditor({
                 />
               </Field>
               <Field label="Your trade / ہنر">
-                <select value={trade} onChange={(e) => setTrade(e.target.value)}>
+                <select required value={trade} onChange={(e) => setTrade(e.target.value)}>
+                  <option value="">Choose your trade</option>
                   {trades.map((t) => (
                     <option key={t}>{t}</option>
                   ))}

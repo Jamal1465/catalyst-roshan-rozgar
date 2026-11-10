@@ -106,6 +106,16 @@ profile form. Browser speech synthesis is only used for read-aloud feedback;
 if an Urdu voice is unavailable, the UI says so rather than pretending audio
 played.
 
+For a live voice check, set `OPENAI_API_KEY` in the ignored local `.env`
+and restart `npm run dev`. As a worker, record
+“میرا نام اسلم ہے۔ میں پانچ سال سے نل اور پانی کی پائپ کی مرمت کرتا ہوں۔”
+and choose **Transcribe my profile**. Check that the draft suggests Plumber,
+contains the spoken repair services and records five years of experience.
+Review or correct the draft, pick a service area, then confirm and publish.
+Check discovery as a customer in the same area. Automated tests use a fixture
+to verify draft handling and publication. This manual check exercises the
+live provider and microphone.
+
 The SQLite database may contain local demo data. It is not a government
 identity verification source, and the product does not claim verification
 badges, exact distances or payment processing. See
