@@ -570,6 +570,8 @@ function Conversation({
   onFind: () => void;
 }) {
   const isWorker = user.id === job.worker_id,
+    canCancel = user.id === job.customer_id,
+    canDecline = user.id === job.worker_id,
     p = job.proposals[0],
     b = job.booking,
     open = ["requested", "discussing"].includes(job.status);
@@ -792,13 +794,15 @@ function Conversation({
               )}
             </div>
           )}
-          {open && (
+          {open && (canCancel || canDecline) && (
             <button
               className="text-button"
               disabled={busy}
-              onClick={() => action(`/requests/${job.id}/${isWorker ? "decline" : "cancel"}`)}
+              onClick={() =>
+                action(`/requests/${job.id}/${canDecline ? "decline" : "cancel"}`)
+              }
             >
-              {isWorker ? "Decline request" : "Cancel request"}
+              {canDecline ? "Decline request" : "Cancel request"}
             </button>
           )}
           {actionError && (

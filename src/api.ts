@@ -49,6 +49,7 @@ const errors: Record<string, string> = {
   INVALID_CREDENTIALS: "The username or password is incorrect.",
   USERNAME_TAKEN: "That username is already taken.",
   TRY_AGAIN_LATER: "Too many attempts. Please wait a minute and try again.",
+  FORBIDDEN: "This action is not available to the signed-in account.",
 };
 export async function api<T>(path: string, data?: unknown): Promise<T> {
   const res = await fetch("/api" + path, {
