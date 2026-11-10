@@ -24,3 +24,6 @@ logs/
 data/
 playwright-report/
 test-results/
+
+.playwright-cli/
+/Roshan Rozgar*.zip

@@ -1206,66 +1206,54 @@ export default function App() {
               </button>
             )}
             {screen === "welcome" && (
-              <>
-                <section className="hero">
-                  <div className="hero-copy">
-                    <p className="eyebrow">LOCAL SKILLS. NEW POSSIBILITIES.</p>
-                    <h1>{t.title}</h1>
-                    <p>{t.intro}</p>
-                    <div className="actions">
-                      <button onClick={() => setScreen("discover")}>
-                        {t.find}
-                        <ArrowRight size={20} />
-                      </button>
-                      <button className="secondary" onClick={() => auth("worker")}>
-                        {t.offer}
-                        <Wrench size={20} />
-                      </button>
-                    </div>
-                    <div className="hero-foot">
-                      <span>
-                        <Check size={17} />
-                        Agree on price first
-                      </span>
-                      <span>
-                        <Check size={17} />
-                        Reviews from completed jobs
-                      </span>
-                    </div>
+              <section className="welcome">
+                <div className="doorway" aria-hidden="true">
+                  <div className="sunrise">
+                    <span />
                   </div>
-                  <div className="hero-art" aria-hidden="true">
-                    <div className="sun-disc">
-                      <Sun strokeWidth={1} />
-                    </div>
-                    <div className="arch">
-                      <Wrench strokeWidth={1} />
-                    </div>
-                    <span className="art-label">ہنر سے روشن کل</span>
-                    <div className="art-caption">
-                      A brighter tomorrow,
-                      <br />
-                      built by skilled hands.
-                    </div>
-                  </div>
-                </section>
-                <section className="steps">
-                  <div>
-                    <span>01</span>
-                    <h2>Find your match</h2>
-                    <p>Choose a trade and your neighbourhood.</p>
-                  </div>
-                  <div>
-                    <span>02</span>
-                    <h2>Talk it through</h2>
-                    <p>Send a voice note. Agree on scope and price.</p>
-                  </div>
-                  <div>
-                    <span>03</span>
-                    <h2>Get it done</h2>
-                    <p>Confirm the work. Share your experience.</p>
-                  </div>
-                </section>
-              </>
+                  <div className="door-panel" />
+                </div>
+                <div className="welcome-copy">
+                  <p className="eyebrow">ISLAMABAD · RAWALPINDI</p>
+                  <h1>{lang === "ur" ? "روشن روزگار" : "Roshan Rozgar"}</h1>
+                  <p>{t.title}</p>
+                </div>
+                <div className="role-cards">
+                  <button className="role-card customer" onClick={() => setScreen("discover")}>
+                    <span className="role-icon">
+                      <Search />
+                    </span>
+                    <span>
+                      <b>{t.find}</b>
+                      <small>Nearby · filter by availability</small>
+                    </span>
+                    <ArrowRight />
+                  </button>
+                  <button className="role-card worker" onClick={() => auth("worker")}>
+                    <span className="role-icon">
+                      <Wrench />
+                    </span>
+                    <span>
+                      <b>{t.offer}</b>
+                      <small>Voice se profile banayein</small>
+                    </span>
+                    <ArrowRight />
+                  </button>
+                </div>
+                <div className="start-audio">
+                  <ReadAloud
+                    language={lang === "en" ? "en" : "ur"}
+                    text={
+                      lang === "en"
+                        ? "Welcome to Roshan Rozgar. Choose Find a worker or Offer my services to get started."
+                        : "روشن روزگار میں خوش آمدید۔ کاریگر ڈھونڈنے یا کام کرنے کے لیے بڑا بٹن دبائیں۔"
+                    }
+                  />
+                </div>
+                <p className="trust-strip">
+                  <Check size={18} /> Reviews from completed jobs
+                </p>
+              </section>
             )}
             {screen === "auth" && (
               <Auth
