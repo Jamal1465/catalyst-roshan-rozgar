@@ -29,7 +29,7 @@ commit `.env`.
 
 ### Demo accounts and live end-to-end test
 
-With the API running from `npm run dev`, seed four idempotent local demo
+With the API running from `npm run dev`, seed ten idempotent local demo
 accounts:
 
 ```sh
@@ -48,6 +48,21 @@ logs in as every account, verifies role identity, checks discovery, creates
 participant messages, publishes proposals, confirms one booking in each trade
 category, runs every worker/customer lifecycle, writes reviews, and verifies
 restored availability.
+
+| Username | Role | Trade |
+|---|---|---|
+| `demo-aslam` | Worker | Electrician |
+| `demo-sana` | Worker | Plumber |
+| `demo-hamza` | Worker | AC technician |
+| `demo-maria` | Worker | Carpenter |
+| `demo-bilal` | Worker | Mechanic |
+| `demo-customer-a` | Customer | Requests Aslam |
+| `demo-customer-b` | Customer | Requests Sana |
+| `demo-customer-c` | Customer | Requests Hamza |
+| `demo-customer-d` | Customer | Requests Maria |
+| `demo-customer-e` | Customer | Requests Bilal |
+
+**Demo password for every account:** `Roshan-Demo-2026!`
 
 ## What is functional
 
