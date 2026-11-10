@@ -1,10 +1,10 @@
-import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
-export const TRADES = ['Electrician', 'Plumber', 'AC technician', 'Carpenter', 'Mechanic'];
-export const AREAS = ['G-9', 'G-10', 'F-10', 'I-8', 'Satellite Town', 'Saddar'];
+import { DatabaseSync } from "node:sqlite";
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
+export const TRADES = ["Electrician", "Plumber", "AC technician", "Carpenter", "Mechanic"];
+export const AREAS = ["G-9", "G-10", "F-10", "I-8", "Satellite Town", "Saddar"];
 export function openDatabase(path) {
-  if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
+  if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
   db.exec(`PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
     CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('worker','customer')));

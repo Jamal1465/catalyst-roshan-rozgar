@@ -1,1753 +1,1147 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
-  Accessibility,
-  AirVent,
-  ArrowLeft,
   ArrowRight,
-  BadgeCheck,
-  Bell,
+  ArrowLeft,
   BriefcaseBusiness,
   Check,
-  ChevronRight,
-  CircleAlert,
-  Clock3,
-  Code2,
-  Drill,
-  Ear,
-  Hammer,
-  House,
-  LocateFixed,
   MapPin,
-  Menu,
-  MessageCircleMore,
-  Mic,
-  Phone,
-  Play,
-  RotateCcw,
+  MessageCircle,
   Search,
-  ShieldCheck,
-  SlidersHorizontal,
-  Sparkles,
   Star,
-  Trash2,
-  Volume2,
-  WifiOff,
+  Sun,
   Wrench,
-  X,
   Zap,
+  Droplets,
+  Wind,
+  Hammer,
+  Settings,
 } from "lucide-react";
-
-type Lang = "roman" | "ur" | "en";
-type Role = "worker" | "customer";
-type Screen =
-  | "welcome"
-  | "trade"
-  | "intro"
-  | "area"
-  | "draft"
-  | "worker"
-  | "discover"
-  | "profile"
-  | "chat"
-  | "agreement"
-  | "active"
-  | "review";
-
-const workerPhoto =
-  "https://images.unsplash.com/photo-1629646182485-715b5b5cbd47?crop=faces&cs=tinysrgb&fit=crop&fm=jpg&h=320&q=80&w=320";
-
+import { api, upload, type User, type Profile, type Job } from "./api";
+import { Recorder, ReadAloud } from "./Recorder";
+type Lang = "en" | "roman" | "ur";
+const trades = ["Electrician", "Plumber", "AC technician", "Carpenter", "Mechanic"];
+const areas = ["G-9", "G-10", "F-10", "I-8", "Satellite Town", "Saddar"];
+const icons = [Zap, Droplets, Wind, Hammer, Settings];
 const copy = {
+  en: {
+    title: "Good work. Close to home.",
+    intro: "Find the right hands for your home. Put your skills to work in your neighbourhood.",
+    find: "Find a worker",
+    offer: "Offer my services",
+    jobs: "My requests",
+    profile: "My profile",
+  },
   roman: {
-    name: "Roshan Rozgar",
-    tagline: "Hunar nazar aaye. Rozgar mil jaye.",
-    find: "Kaam ke liye ustad dhoondein",
+    title: "Hunar nazar aaye. Rozgar mil jaye.",
+    intro: "Apne ilaqay mein sahi ustad dhoondein. Apne hunar se rozgar kamayein.",
+    find: "Ustad dhoondein",
     offer: "Main kaam karta hoon",
-    speak: "Bol kar batayein",
-    listen: "Dobara sunein",
-    available: "Abhi farigh hoon",
-    busy: "Tasdeeq shuda kaam jaari hai",
-    next: "Aagay chalein",
+    jobs: "Meray kaam",
+    profile: "Mera profile",
   },
   ur: {
-    name: "روشن روزگار",
-    tagline: "ہنر نظر آئے، روزگار مل جائے",
-    find: "کام کے لیے کاریگر ڈھونڈیں",
+    title: "ہنر نظر آئے، روزگار مل جائے۔",
+    intro: "اپنے علاقے میں ہنر مند کاریگر ڈھونڈیں۔ اپنے ہنر سے روزگار کمائیں۔",
+    find: "کاریگر ڈھونڈیں",
     offer: "میں کام کرتا ہوں",
-    speak: "بول کر بتائیں",
-    listen: "دوبارہ سنیں",
-    available: "ابھی فارغ ہوں",
-    busy: "تصدیق شدہ کام جاری ہے",
-    next: "آگے چلیں",
-  },
-  en: {
-    name: "Roshan Rozgar",
-    tagline: "Let skill be seen. Let work be found.",
-    find: "Find a skilled worker",
-    offer: "Offer my services",
-    speak: "Describe by voice",
-    listen: "Listen again",
-    available: "Available now",
-    busy: "Busy with a confirmed job",
-    next: "Continue",
+    jobs: "میرے کام",
+    profile: "میرا پروفائل",
   },
 };
-
-const journey: { id: Screen; label: string; role: Role }[] = [
-  { id: "welcome", label: "Choose role", role: "customer" },
-  { id: "trade", label: "Choose trade", role: "worker" },
-  { id: "intro", label: "Voice profile", role: "worker" },
-  { id: "area", label: "Service area", role: "worker" },
-  { id: "draft", label: "Confirm profile", role: "worker" },
-  { id: "worker", label: "Go available", role: "worker" },
-  { id: "discover", label: "Find local help", role: "customer" },
-  { id: "profile", label: "Check trust", role: "customer" },
-  { id: "chat", label: "Discuss by voice", role: "customer" },
-  { id: "agreement", label: "Agree price", role: "customer" },
-  { id: "active", label: "Complete job", role: "worker" },
-  { id: "review", label: "Build reputation", role: "customer" },
-];
-
-const trades = [
-  { name: "Electrician", roman: "Bijli ka kaam", icon: Zap, color: "#F3A712" },
-  { name: "Plumber", roman: "Nal / pipe", icon: Wrench, color: "#168F63" },
-  { name: "AC Technician", roman: "AC ustad", icon: AirVent, color: "#2C7180" },
-  { name: "Carpenter", roman: "Lakri ka kaam", icon: Hammer, color: "#A45F00" },
-  { name: "Mechanic", roman: "Gaari mechanic", icon: Drill, color: "#A83232" },
-];
-
-function speak(text: string) {
-  if ("speechSynthesis" in window) {
-    window.speechSynthesis.cancel();
-    const voice = new SpeechSynthesisUtterance(text);
-    voice.rate = 0.88;
-    window.speechSynthesis.speak(voice);
-  }
-}
-
-function SpeakerButton({ text, label = "Dobara sunein" }: { text: string; label?: string }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <button className="speaker" onClick={() => speak(text)} aria-label={label} title={label}>
-      <Volume2 size={21} strokeWidth={2.6} />
-    </button>
-  );
-}
-
-function AcousticCanvas({ active }: { active: boolean }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    let frame = 0;
-    let raf = 0;
-    const draw = () => {
-      const dpr = Math.min(devicePixelRatio, 2);
-      const size = canvas.clientWidth;
-      canvas.width = size * dpr;
-      canvas.height = size * dpr;
-      ctx.scale(dpr, dpr);
-      ctx.clearRect(0, 0, size, size);
-      const cx = size / 2;
-      const phase = frame * 0.055;
-      for (let i = 0; i < 4; i++) {
-        const energy = active ? Math.sin(phase + i * 1.8) * 5 + 9 : 0;
-        const radius = size * (0.29 + i * 0.06) + energy;
-        ctx.beginPath();
-        ctx.arc(cx, cx, radius, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(${active ? "243,167,18" : "11,93,75"},${0.36 - i * 0.065})`;
-        ctx.lineWidth = active ? 3 : 1.5;
-        ctx.stroke();
-      }
-      frame++;
-      raf = requestAnimationFrame(draw);
-    };
-    draw();
-    return () => cancelAnimationFrame(raf);
-  }, [active]);
-  return <canvas ref={ref} className="acoustic" aria-hidden="true" />;
-}
-
-function VoiceChamber({
-  compact = false,
-  onComplete,
-}: {
-  compact?: boolean;
-  onComplete?: () => void;
-}) {
-  const [state, setState] = useState<"idle" | "recording" | "ready">("idle");
-  const timer = useRef<number | undefined>(undefined);
-  const start = () => {
-    setState("recording");
-    navigator.vibrate?.(35);
-    timer.current = window.setTimeout(() => {
-      setState("ready");
-      onComplete?.();
-      navigator.vibrate?.([30, 40, 30]);
-    }, 1700);
-  };
-  const stop = () => {
-    if (timer.current) clearTimeout(timer.current);
-    if (state === "recording") {
-      setState("ready");
-      onComplete?.();
-    }
-  };
-  return (
-    <div className={`voice-chamber ${compact ? "compact" : ""}`}>
-      <AcousticCanvas active={state === "recording"} />
-      <button
-        className={`mic-hardware ${state}`}
-        onPointerDown={start}
-        onPointerUp={stop}
-        onPointerLeave={stop}
-        aria-label="Hold to record voice"
-      >
-        {state === "ready" ? <Check size={compact ? 30 : 42} /> : <Mic size={compact ? 30 : 42} />}
-        <span>
-          {state === "recording"
-            ? "SUN RAHA HOON"
-            : state === "ready"
-              ? "AWAAZ TAYYAR"
-              : "DABA KAR BOLEIN"}
-        </span>
-      </button>
-      {!compact && (
-        <div className="voice-status">
-          <span className={state === "recording" ? "live-dot" : "status-dot"} />
-          {state === "recording"
-            ? "Recording · 0:02"
-            : state === "ready"
-              ? "Voice note · 0:08"
-              : "Hold, speak, then release"}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function TradeGrid({
-  selected,
-  setSelected,
-}: {
-  selected: number;
-  setSelected: (n: number) => void;
-}) {
-  return (
-    <div className="trade-grid">
-      {trades.map((trade, index) => {
-        const Icon = trade.icon;
-        return (
-          <motion.button
-            whileTap={{ y: 5, rotateX: 3 }}
-            key={trade.name}
-            className={`trade-token ${selected === index ? "selected" : ""}`}
-            onClick={() => setSelected(index)}
-            style={{ "--trade": trade.color } as React.CSSProperties}
-          >
-            <div className="trade-emblem">
-              <Icon size={32} strokeWidth={2.5} />
-            </div>
-            <span>{trade.name}</span>
-            <small>{trade.roman}</small>
-            {selected === index && <Check className="trade-check" size={18} />}
-          </motion.button>
-        );
-      })}
-    </div>
-  );
-}
-
-function PageHeading({
-  eyebrow,
-  title,
-  text,
-  audio,
-}: {
-  eyebrow: string;
-  title: string;
-  text: string;
-  audio?: string;
-}) {
-  return (
-    <header className="page-heading">
-      <div className="eyebrow">{eyebrow}</div>
-      <div className="heading-row">
-        <h1>{title}</h1>
-        <SpeakerButton text={audio || `${title}. ${text}`} />
-      </div>
-      <p>{text}</p>
-    </header>
-  );
-}
-
-function Waveform({ playing = false }: { playing?: boolean }) {
-  return (
-    <div className={`waveform ${playing ? "playing" : ""}`} aria-hidden="true">
-      {[8, 16, 11, 24, 18, 30, 13, 22, 10, 28, 19, 12, 23, 9, 15, 26, 12, 19].map((h, i) => (
-        <i key={i} style={{ height: h, animationDelay: `${i * 35}ms` }} />
-      ))}
-    </div>
-  );
-}
-
-function AudioNote({ mine = false, text, time }: { mine?: boolean; text: string; time: string }) {
-  const [playing, setPlaying] = useState(false);
-  return (
-    <div className={`audio-note ${mine ? "mine" : ""}`}>
-      <button onClick={() => setPlaying(!playing)} aria-label="Play voice note">
-        {playing ? <span className="pause-icon">Ⅱ</span> : <Play size={17} fill="currentColor" />}
-      </button>
-      <Waveform playing={playing} />
-      <b>{time}</b>
-      <p>{text}</p>
-    </div>
-  );
-}
-
-function App() {
-  const reduceMotion = useReducedMotion();
-  const [lang, setLang] = useState<Lang>("roman");
-  const [role, setRole] = useState<Role>("customer");
-  const [screen, setScreen] = useState<Screen>("welcome");
-  const [selectedTrade, setSelectedTrade] = useState(0);
-  const [area, setArea] = useState("G-9");
-  const [available, setAvailable] = useState(false);
-  const [booked, setBooked] = useState(false);
-  const [jobStarted, setJobStarted] = useState(false);
-  const [jobFinished, setJobFinished] = useState(false);
-  const [agreement, setAgreement] = useState(false);
-  const [conflict, setConflict] = useState(false);
-  const [reviewed, setReviewed] = useState(false);
-  const [rating, setRating] = useState(5);
-  const [annotationOpen, setAnnotationOpen] = useState(false);
-  const [requirementsOpen, setRequirementsOpen] = useState(false);
-  const [journeyOpen, setJourneyOpen] = useState(false);
-  const [offline, setOffline] = useState(false);
-  const [permissionDenied, setPermissionDenied] = useState(false);
-  const [selectedFilters, setSelectedFilters] = useState(["Available now"]);
-  const t = copy[lang];
-  const index = journey.findIndex((step) => step.id === screen);
-  const direction = lang === "ur" ? -1 : 1;
-
-  const go = (next: Screen) => {
-    setScreen(next);
-    const destination = journey.find((s) => s.id === next);
-    if (destination && next !== "welcome") setRole(destination.role);
-    window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
-  };
-
-  const roleSwitch = (next: Role) => {
-    setRole(next);
-    if (next === "worker") go(booked ? "active" : "worker");
-    else go(booked ? (jobFinished ? "review" : "active") : "discover");
-  };
-
-  const next = () => {
-    if (index < journey.length - 1) go(journey[index + 1].id);
-  };
-
-  const resetDemo = () => {
-    setBooked(false);
-    setAgreement(false);
-    setJobStarted(false);
-    setJobFinished(false);
-    setReviewed(false);
-    setAvailable(false);
-    setConflict(false);
-    go("welcome");
-  };
-
-  const submitReview = () => {
-    setReviewed(true);
-    setBooked(false);
-    setAvailable(true);
-    navigator.vibrate?.([40, 30, 80]);
-  };
-
-  const transition = reduceMotion
-    ? { duration: 0 }
-    : { type: "spring" as const, stiffness: 260, damping: 27 };
-
-  return (
-    <div className="app-shell" dir={lang === "ur" ? "rtl" : "ltr"}>
-      <div className="judge-bar" dir="ltr">
-        <div className="judge-label">
-          <Sparkles size={14} /> JUDGE LIVE VIEW
-        </div>
-        <div className="role-switch" aria-label="Switch demo role">
-          <button
-            className={role === "worker" ? "active" : ""}
-            onClick={() => roleSwitch("worker")}
-          >
-            <BriefcaseBusiness size={15} /> Worker: Aslam
-          </button>
-          <span>⇄</span>
-          <button
-            className={role === "customer" ? "active" : ""}
-            onClick={() => roleSwitch("customer")}
-          >
-            <House size={15} /> Customer: Fatima
-          </button>
-        </div>
-        <div className="sync-state">
-          <span /> State synced
-        </div>
-      </div>
-
-      {offline && (
-        <button className="offline-banner" onClick={() => setOffline(false)}>
-          <WifiOff size={18} /> Offline — your action is saved. Tap to retry.
-        </button>
-      )}
-
-      <nav className="top-nav">
-        <button className="brand" onClick={() => go("welcome")} aria-label="Roshan Rozgar home">
-          <span className="sun-mark">
-            <i />
-          </span>
-          <span>
-            <b>{t.name}</b>
-            <small>ROSHAN ROZGAR</small>
-          </span>
-        </button>
-        <div className="language-switch" dir="ltr">
-          {(["ur", "roman", "en"] as Lang[]).map((item) => (
-            <button
-              key={item}
-              className={lang === item ? "active" : ""}
-              onClick={() => setLang(item)}
-            >
-              {item === "ur" ? "اردو" : item === "roman" ? "Roman" : "EN"}
-            </button>
-          ))}
-        </div>
-        <button className="journey-button" onClick={() => setJourneyOpen(true)}>
-          <Menu size={18} /> <span>Demo path</span>
-          <b>{index + 1}/12</b>
-        </button>
-      </nav>
-
-      <div className="desktop-layout">
-        <aside className="desktop-rail" dir="ltr">
-          <div className="rail-head">
-            <span>12-step story</span>
-            <b>{Math.round(((index + 1) / 12) * 100)}%</b>
-          </div>
-          <div className="rail-line">
-            {journey.map((step, i) => (
-              <button
-                key={step.id}
-                className={i === index ? "active" : i < index ? "done" : ""}
-                onClick={() => go(step.id)}
-              >
-                <span>{i < index ? <Check size={12} /> : i + 1}</span>
-                <div>
-                  <b>{step.label}</b>
-                  <small>{step.role}</small>
-                </div>
-              </button>
-            ))}
-          </div>
-          <button className="reset-demo" onClick={resetDemo}>
-            <RotateCcw size={15} /> Reset demo
-          </button>
-        </aside>
-
-        <main className="phone-stage">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.section
-              key={screen}
-              className={`screen screen-${screen}`}
-              initial={{ opacity: 0, x: 28 * direction, rotateY: 2 * direction }}
-              animate={{ opacity: 1, x: 0, rotateY: 0 }}
-              exit={{ opacity: 0, x: -18 * direction }}
-              transition={transition}
-            >
-              {screen === "welcome" && (
-                <Welcome
-                  t={t}
-                  onWorker={() => {
-                    setRole("worker");
-                    go("trade");
-                  }}
-                  onCustomer={() => {
-                    setRole("customer");
-                    go("discover");
-                  }}
-                />
-              )}
-              {screen === "trade" && (
-                <>
-                  <PageHeading
-                    eyebrow="PROFILE · 1 OF 4"
-                    title="Aap ka hunar kya hai?"
-                    text="Tasveer ko chunein — type karne ki zaroorat nahi."
-                  />
-                  <TradeGrid selected={selectedTrade} setSelected={setSelectedTrade} />
-                  <BottomAction
-                    label={`${trades[selectedTrade].name} — ${t.next}`}
-                    onClick={next}
-                  />
-                </>
-              )}
-              {screen === "intro" && (
-                <>
-                  <PageHeading
-                    eyebrow="PROFILE · 2 OF 4"
-                    title="Apna taaruf bol kar dein"
-                    text="Naam, tajurba, aur kis qisam ka kaam karte hain."
-                    audio="Apna naam, tajurba aur services bol kar batayein. Button daba kar rakhein."
-                  />
-                  <div className="prompt-card">
-                    <Volume2 size={18} />
-                    <p>“Mera naam Aslam hai. Main das saal se electrician ka kaam karta hoon...”</p>
-                  </div>
-                  <VoiceChamber />
-                  <div className="privacy-line">
-                    <ShieldCheck size={16} /> Aap sun kar tasdeeq karein ge, phir profile publish
-                    hogi.
-                  </div>
-                  <BottomAction label="Awaaz record ho gayi — Aagay" onClick={next} />
-                </>
-              )}
-              {screen === "area" && (
-                <>
-                  <PageHeading
-                    eyebrow="PROFILE · 3 OF 4"
-                    title="Kahan kaam kar sakte hain?"
-                    text="Sirf ilaqa dikhe ga — ghar ki exact location nahi."
-                  />
-                  <button className="location-button" onClick={() => setArea("G-9")}>
-                    <span>
-                      <LocateFixed size={25} />
-                      <b>Meri location istemal karein</b>
-                    </span>
-                    <small>Permission sirf qareebi kaam dhoondne ke liye</small>
-                    <ChevronRight size={20} />
-                  </button>
-                  {permissionDenied && (
-                    <div className="inline-error">
-                      <CircleAlert /> Location band hai. Neeche se sector chunein.
-                    </div>
-                  )}
-                  <div className="sector-grid">
-                    {["G-9", "F-10", "I-8", "Saddar", "Satellite Town"].map((sector) => (
-                      <button
-                        key={sector}
-                        className={area === sector ? "selected" : ""}
-                        onClick={() => setArea(sector)}
-                      >
-                        <MapPin size={20} />
-                        <b>{sector}</b>
-                        <small>
-                          {sector === "G-9" || sector === "F-10" || sector === "I-8"
-                            ? "Islamabad"
-                            : "Rawalpindi"}
-                        </small>
-                      </button>
-                    ))}
-                  </div>
-                  <BottomAction label={`${area} — ${t.next}`} onClick={next} />
-                </>
-              )}
-              {screen === "draft" && (
-                <>
-                  <PageHeading
-                    eyebrow="PROFILE · 4 OF 4"
-                    title="Suniye, phir tasdeeq karein"
-                    text="AI ne sirf aap ki awaaz se yeh maloomat nikali hai."
-                  />
-                  <div className="ai-draft">
-                    <div className="ai-title">
-                      <span>
-                        <Sparkles size={17} /> AI draft
-                      </span>
-                      <SpeakerButton text="Aslam. Electrician. Das saal ka tajurba. Fan, switch aur wiring theek karte hain." />
-                    </div>
-                    <DataRow label="Naam" value="Aslam Khan" />
-                    <DataRow label="Hunar" value="Electrician" />
-                    <DataRow label="Tajurba" value="10 saal · khud bataya" />
-                    <DataRow label="Services" value="Fan · switch · wiring" />
-                    <DataRow label="Ilaqa" value={`${area} aur qareebi sectors`} />
-                  </div>
-                  <div className="split-actions">
-                    <button className="secondary-button">
-                      <Mic size={18} /> Awaaz se durust karein
-                    </button>
-                    <button className="primary-button" onClick={next}>
-                      <Check size={19} /> Profile publish karein
-                    </button>
-                  </div>
-                </>
-              )}
-              {screen === "worker" && (
-                <WorkerHome
-                  available={available}
-                  setAvailable={setAvailable}
-                  booked={booked}
-                  t={t}
-                  onRequest={() => go("chat")}
-                />
-              )}
-              {screen === "discover" && (
-                <Discovery
-                  selectedTrade={selectedTrade}
-                  setSelectedTrade={setSelectedTrade}
-                  selectedFilters={selectedFilters}
-                  setSelectedFilters={setSelectedFilters}
-                  available={available}
-                  onProfile={() => go("profile")}
-                  onOffline={() => setOffline(true)}
-                />
-              )}
-              {screen === "profile" && (
-                <WorkerProfile
-                  available={available}
-                  onBack={() => go("discover")}
-                  onDiscuss={() => go("chat")}
-                />
-              )}
-              {screen === "chat" && (
-                <Conversation onContinue={() => go("agreement")} offline={offline} />
-              )}
-              {screen === "agreement" && (
-                <Agreement
-                  accepted={agreement}
-                  onAccept={() => {
-                    setAgreement(true);
-                    setBooked(true);
-                    setAvailable(false);
-                  }}
-                  onContinue={() => go("active")}
-                />
-              )}
-              {screen === "active" && (
-                <ActiveJob
-                  role={role}
-                  started={jobStarted}
-                  finished={jobFinished}
-                  conflict={conflict}
-                  setConflict={setConflict}
-                  onStart={() => setJobStarted(true)}
-                  onFinish={() => setJobFinished(true)}
-                  onReview={() => go("review")}
-                  onFindAnother={() => {
-                    setConflict(false);
-                    go("discover");
-                  }}
-                />
-              )}
-              {screen === "review" && (
-                <Review
-                  rating={rating}
-                  setRating={setRating}
-                  reviewed={reviewed}
-                  onSubmit={submitReview}
-                  onHome={() => {
-                    setRole("worker");
-                    go("worker");
-                  }}
-                />
-              )}
-            </motion.section>
-          </AnimatePresence>
-        </main>
-
-        <aside className="context-panel" dir="ltr">
-          <div className="context-card live">
-            <div className="context-label">
-              <span /> SHARED LIVE STATE
-            </div>
-            <h3>
-              {booked ? "Booking locked" : available ? "Aslam is discoverable" : "Aslam is offline"}
-            </h3>
-            <dl>
-              <div>
-                <dt>Worker</dt>
-                <dd>Aslam Khan</dd>
-              </div>
-              <div>
-                <dt>Status</dt>
-                <dd>{booked ? "Busy" : available ? "Available" : "Not taking jobs"}</dd>
-              </div>
-              <div>
-                <dt>Job</dt>
-                <dd>{booked ? "RR-2408-117" : "—"}</dd>
-              </div>
-              <div>
-                <dt>Price</dt>
-                <dd>{agreement ? "PKR 2,500" : "Not agreed"}</dd>
-              </div>
-            </dl>
-          </div>
-          <button className="context-card annotation-card" onClick={() => setAnnotationOpen(true)}>
-            <Code2 size={22} />
-            <span>
-              <b>Developer annotations</b>
-              <small>RLS · audio · atomic RPC</small>
-            </span>
-            <ChevronRight />
-          </button>
-          <button
-            className="context-card annotation-card"
-            onClick={() => setRequirementsOpen(true)}
-          >
-            <BadgeCheck size={22} />
-            <span>
-              <b>Requirements verified</b>
-              <small>8 screens · 5 outcomes</small>
-            </span>
-            <ChevronRight />
-          </button>
-          <div className="context-card test-panel">
-            <b>Demo conditions</b>
-            <label>
-              <span>
-                <WifiOff size={16} /> Spotty network
-              </span>
-              <input
-                type="checkbox"
-                checked={offline}
-                onChange={(e) => setOffline(e.target.checked)}
-              />
-            </label>
-            <label>
-              <span>
-                <MapPin size={16} /> Location denied
-              </span>
-              <input
-                type="checkbox"
-                checked={permissionDenied}
-                onChange={(e) => setPermissionDenied(e.target.checked)}
-              />
-            </label>
-          </div>
-        </aside>
-      </div>
-
-      <div className="mobile-bottom-bar" dir="ltr">
-        <button onClick={() => setJourneyOpen(true)}>
-          <Menu />
-          <span>Story</span>
-        </button>
-        <button onClick={() => roleSwitch("worker")} className={role === "worker" ? "active" : ""}>
-          <BriefcaseBusiness />
-          <span>Aslam</span>
-        </button>
-        <button
-          className="center-action"
-          onClick={() => speak("Aap Roshan Rozgar par hain. Screen par bara button dabayein.")}
-        >
-          <Ear />
-          <span>Listen</span>
-        </button>
-        <button
-          onClick={() => roleSwitch("customer")}
-          className={role === "customer" ? "active" : ""}
-        >
-          <House />
-          <span>Fatima</span>
-        </button>
-        <button onClick={() => setRequirementsOpen(true)}>
-          <BadgeCheck />
-          <span>Verify</span>
-        </button>
-      </div>
-
-      <Drawer
-        open={journeyOpen}
-        onClose={() => setJourneyOpen(false)}
-        title="12-step connected story"
-      >
-        <div className="mobile-journey" dir="ltr">
-          {journey.map((step, i) => (
-            <button
-              key={step.id}
-              className={i === index ? "active" : ""}
-              onClick={() => {
-                go(step.id);
-                setJourneyOpen(false);
-              }}
-            >
-              <span>{i < index ? <Check size={15} /> : i + 1}</span>
-              <div>
-                <b>{step.label}</b>
-                <small>View as {step.role}</small>
-              </div>
-              <ChevronRight size={18} />
-            </button>
-          ))}
-          <button
-            className="drawer-reset"
-            onClick={() => {
-              resetDemo();
-              setJourneyOpen(false);
-            }}
-          >
-            <RotateCcw /> Reset the full demo
-          </button>
-        </div>
-      </Drawer>
-
-      <Drawer
-        open={annotationOpen}
-        onClose={() => setAnnotationOpen(false)}
-        title="Implementation handoff"
-      >
-        <div className="annotations" dir="ltr">
-          <Annotation
-            icon={ShieldCheck}
-            title="Supabase RLS"
-            text="workers update only their own profile; customers read published profiles; booking participants read shared job records."
-            code="auth.uid() = worker_user_id"
-          />
-          <Annotation
-            icon={Mic}
-            title="Private audio bucket"
-            text="Signed, expiring URLs for voice intros, job notes, and reviews. Never public object URLs."
-            code="voice-notes/{user_id}/{uuid}.webm"
-          />
-          <Annotation
-            icon={Sparkles}
-            title="Server-side AI validation"
-            text="Extraction output is schema-validated. Missing fields remain null and trigger one spoken follow-up."
-            code="z.object({ trade, services, experience })"
-          />
-          <Annotation
-            icon={BadgeCheck}
-            title="Atomic booking lock"
-            text="A single transaction checks availability, creates the booking, and locks the worker before returning."
-            code="confirm_atomic_booking(worker_id, request_id)"
-          />
-        </div>
-      </Drawer>
-
-      <Drawer
-        open={requirementsOpen}
-        onClose={() => setRequirementsOpen(false)}
-        title="Requirement → screen"
-      >
-        <div className="requirements" dir="ltr">
-          {[
-            ["Zero-typing onboarding", "Steps 2–5", true],
-            ["Instant local discovery", "Step 7", true],
-            ["Voice scope + PKR agreement", "Steps 9–10", true],
-            ["Atomic availability lock", "Steps 10–11", booked],
-            ["Conflict recovery preserves request", "Step 11", true],
-            ["Review restores availability", "Step 12", reviewed],
-            ["Urdu RTL / Roman / English", "Persistent header", true],
-            ["Offline + permission states", "Demo conditions", true],
-          ].map(([label, place, done]) => (
-            <div key={String(label)}>
-              <span className={done ? "ok" : ""}>{done ? <Check /> : <Clock3 />}</span>
-              <p>
-                <b>{label}</b>
-                <small>{place}</small>
-              </p>
-            </div>
-          ))}
-        </div>
-      </Drawer>
-    </div>
-  );
-}
-
-function Welcome({
-  t,
-  onWorker,
-  onCustomer,
-}: {
-  t: typeof copy.roman;
-  onWorker: () => void;
-  onCustomer: () => void;
-}) {
-  return (
-    <div className="welcome">
-      <div className="doorway">
-        <div className="sunrise">
-          <span />
-          <i />
-          <i />
-          <i />
-        </div>
-        <div className="door-panel" />
-      </div>
-      <div className="welcome-copy">
-        <div className="eyebrow">ISLAMABAD · RAWALPINDI</div>
-        <h1>{t.name}</h1>
-        <p>{t.tagline}</p>
-      </div>
-      <div className="role-cards">
-        <motion.button whileTap={{ y: 6 }} className="role-card customer" onClick={onCustomer}>
-          <div className="role-icon">
-            <Search />
-          </div>
-          <span>
-            <b>{t.find}</b>
-            <small>Nearby · available · trusted</small>
-          </span>
-          <ArrowRight />
-        </motion.button>
-        <motion.button whileTap={{ y: 6 }} className="role-card worker" onClick={onWorker}>
-          <div className="role-icon">
-            <Wrench />
-          </div>
-          <span>
-            <b>{t.offer}</b>
-            <small>Voice se profile banayein</small>
-          </span>
-          <ArrowRight />
-        </motion.button>
-      </div>
-      <div className="start-audio">
-        <SpeakerButton text="Roshan Rozgar mein khush aamdeed. Kaam dhoondne ya apni services dene ke liye bara button dabayein." />
-        <span>
-          <b>Start with voice</b>
-          <small>Sun kar shuru karein</small>
-        </span>
-      </div>
-      <div className="trust-strip">
-        <ShieldCheck />
-        <span>
-          <b>Platform job evidence</b>
-          <small>No fake verification badges</small>
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function BottomAction({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <button className="bottom-action" onClick={onClick}>
+    <label className="field">
       <span>{label}</span>
-      <ArrowRight size={21} />
-    </button>
+      {children}
+    </label>
   );
 }
-
-function DataRow({ label, value }: { label: string; value: string }) {
+function Heading({ tag, title, children }: { tag: string; title: string; children?: ReactNode }) {
   return (
-    <div className="data-row">
-      <span>{label}</span>
-      <b>{value}</b>
-      <Check size={17} />
+    <div className="page-heading">
+      <p className="eyebrow">{tag}</p>
+      <h1>{title}</h1>
+      {children && <p className="muted">{children}</p>}
     </div>
   );
 }
-
-function AvailabilityBreaker({
-  available,
-  setAvailable,
-  locked,
+function Form({
+  children,
+  onSubmit,
 }: {
-  available: boolean;
-  setAvailable: (v: boolean) => void;
-  locked: boolean;
+  children: ReactNode;
+  onSubmit: (data: FormData) => Promise<void>;
 }) {
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
   return (
-    <button
-      className={`breaker ${available ? "on" : ""} ${locked ? "locked" : ""}`}
-      onClick={() => !locked && setAvailable(!available)}
+    <form
+      onSubmit={async (e: FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const data = new FormData(e.currentTarget);
+        setBusy(true);
+        setError("");
+        try {
+          await onSubmit(data);
+        } catch (e) {
+          setError((e as Error).message);
+        } finally {
+          setBusy(false);
+        }
+      }}
     >
-      <div className="breaker-top">
-        <span className="status-beacon" />
-        <b>{locked ? "LOCKED · JOB ACTIVE" : available ? "LIVE · VISIBLE" : "OFF DUTY"}</b>
-        <ShieldCheck size={17} />
-      </div>
-      <div className="breaker-well">
-        <span className="breaker-lever">
-          <i />
-        </span>
-        <div>
-          <strong>
-            {locked ? "Masroof" : available ? "Abhi farigh hoon" : "Kaam nahi le raha"}
-          </strong>
-          <small>
-            {locked
-              ? "Confirmed job ke dauran badal nahi sakte"
-              : available
-                ? "Customers aap ko dekh sakte hain"
-                : "Toggle ko upar karein"}
-          </small>
-        </div>
-      </div>
-    </button>
+      <fieldset disabled={busy}>{children}</fieldset>
+      {busy && <p role="status">Saving…</p>}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+    </form>
   );
 }
-
-function WorkerHome({
-  available,
-  setAvailable,
-  booked,
-  t,
-  onRequest,
+function Auth({ role, onDone }: { role: User["role"]; onDone: (user: User) => void }) {
+  const [login, setLogin] = useState(false);
+  return (
+    <section className="card auth">
+      <Heading
+        tag="YOUR NEIGHBOURHOOD, YOUR ACCOUNT"
+        title={
+          login
+            ? "Welcome back."
+            : role === "worker"
+              ? "Let’s get you working."
+              : "A helping hand starts here."
+        }
+      >
+        Local MVP account · no identity verification claimed.
+      </Heading>
+      <Form
+        onSubmit={async (d) =>
+          onDone(
+            await api<User>("/auth/" + (login ? "login" : "register"), {
+              username: d.get("username"),
+              password: d.get("password"),
+              role,
+            }),
+          )
+        }
+      >
+        <Field label="Username">
+          <input name="username" autoComplete="username" required maxLength={64} />
+        </Field>
+        <Field label="Password (at least 10 characters)">
+          <input
+            name="password"
+            type="password"
+            autoComplete={login ? "current-password" : "new-password"}
+            minLength={10}
+            maxLength={128}
+            required
+          />
+        </Field>
+        <button>
+          {login ? "Sign in" : "Create " + role + " account"}
+          <ArrowRight size={18} />
+        </button>
+      </Form>
+      <button className="text-button" onClick={() => setLogin(!login)}>
+        {login ? "New here? Create an account" : "Already have an account? Sign in"}
+      </button>
+    </section>
+  );
+}
+function ProfileEditor({
+  profile,
+  onSaved,
+  lang,
 }: {
-  available: boolean;
-  setAvailable: (v: boolean) => void;
-  booked: boolean;
-  t: typeof copy.roman;
-  onRequest: () => void;
+  profile: Profile | null;
+  onSaved: () => Promise<void>;
+  lang: Lang;
 }) {
+  const [name, setName] = useState(profile?.name || ""),
+    [trade, setTrade] = useState(profile?.trade || trades[0]),
+    [years, setYears] = useState(profile?.years_experience?.toString() || ""),
+    [services, setServices] = useState(profile?.services.join("\n") || ""),
+    [selected, setSelected] = useState<string[]>(profile?.areas || []),
+    [available, setAvailable] = useState(profile?.manual_available ?? true),
+    [transcript, setTranscript] = useState(""),
+    [uncertain, setUncertain] = useState<string[]>([]),
+    [confirmed, setConfirmed] = useState(false),
+    [saved, setSaved] = useState(false);
+  const draft = `${name}. ${trade}. ${years ? years + " years experience." : ""} ${services}. Service areas: ${selected.join(", ")}.`;
   return (
     <>
-      <div className="home-greeting">
-        <div>
-          <span>ASSALAM-O-ALAIKUM</span>
-          <h1>Aslam ustad</h1>
-        </div>
-        <img src={workerPhoto} alt="Aslam Khan, electrician" />
-      </div>
-      <AvailabilityBreaker available={available} setAvailable={setAvailable} locked={booked} />
-      <div className="instruction-strip">
-        <SpeakerButton
-          text={
-            booked
-              ? t.busy
-              : available
-                ? "Aap abhi farigh hain. Naya kaam aane par ghanti bajay gi."
-                : "Naye kaam ke liye breaker on karein."
-          }
-        />
-        <p>
-          {booked
-            ? "Toggle active booking ki wajah se locked hai."
-            : available
-              ? "Aap ka profile G-9 ke customers ko nazar aa raha hai."
-              : "Kaam lene ke liye bara switch on karein."}
-        </p>
-      </div>
-      <div className="section-title">
-        <div>
-          <span>INCOMING</span>
-          <h2>Naya kaam</h2>
-        </div>
-        <span className="count-badge">{available ? 1 : 0}</span>
-      </div>
-      {available && !booked ? (
-        <div className="request-card">
-          <div className="request-head">
-            <div className="fatima-avatar">F</div>
-            <div>
-              <b>Fatima R.</b>
-              <small>
-                <MapPin size={13} /> G-9 · 1.2 km
-              </small>
-            </div>
-            <span>NOW</span>
-          </div>
-          <div className="request-category">
-            <Zap size={18} /> Fan & switch · Bijli
-          </div>
-          <AudioNote
-            text="Ceiling fan dheema chal raha hai aur switch garam hota hai."
-            time="0:12"
+      <Heading tag="YOUR SKILLS, YOUR LIVELIHOOD" title="Tell your story.">
+        اپنا نام، تجربہ اور کام بتائیں · Record in Urdu, then check your draft.
+      </Heading>
+      <div className="editor-grid">
+        <section className="card">
+          <h2>Start with your voice</h2>
+          <ReadAloud
+            language="ur"
+            text="اپنا نام بتائیں، آپ کتنے سال سے کام کر رہے ہیں، اور کون سے کام کرتے ہیں؟"
           />
-          <button className="primary-button full" onClick={onRequest}>
-            <Ear size={20} /> Sunein aur jawab dein
-          </button>
-        </div>
-      ) : (
-        <div className="empty-state">
-          <Bell />
-          <b>{booked ? "Aik kaam jaari hai" : "Aap offline hain"}</b>
-          <p>
-            {booked
-              ? "Naya immediate request lock ke dauran nahi aa sakta."
-              : "Breaker on hote hi qareebi requests yahan aayengi."}
+          <Recorder
+            label="Transcribe my profile"
+            onSend={async (blob) => {
+              const audio_id = await upload(blob);
+              const result = await api<{
+                transcript: string;
+                draft: {
+                  name: string | null;
+                  years_experience: number | null;
+                  services: string[];
+                  uncertain_fields: string[];
+                };
+              }>("/ai/transcribe-profile", { audio_id });
+              setName(result.draft.name || "");
+              setYears(result.draft.years_experience?.toString() || "");
+              setServices(result.draft.services.join("\n"));
+              setTranscript(result.transcript);
+              setUncertain(result.draft.uncertain_fields);
+              setConfirmed(false);
+            }}
+          />
+          <p className="muted">
+            Optional: recording is sent to the server. Transcription sends it to OpenAI only when
+            configured. You can enter the same details manually.
           </p>
-        </div>
-      )}
+          {transcript && (
+            <div className="notice">
+              <b>Automatically transcribed — please check</b>
+              <p>{transcript}</p>
+            </div>
+          )}
+          {uncertain.length > 0 && (
+            <p className="notice">
+              Please check: {uncertain.join(", ")}. Unknown experience can stay blank.
+            </p>
+          )}
+        </section>
+        <section className="card">
+          <h2>Review your profile</h2>
+          <Form
+            onSubmit={async () => {
+              if (!confirmed) throw new Error("Please confirm that these details are correct.");
+              await api("/profile", {
+                name,
+                trade,
+                years_experience: years === "" ? null : Number(years),
+                services: services
+                  .split("\n")
+                  .map((s) => s.trim())
+                  .filter(Boolean),
+                areas: selected,
+                manual_available: available,
+                language: lang,
+              });
+              await onSaved();
+              setSaved(true);
+            }}
+          >
+            <div
+              onChange={() => {
+                setConfirmed(false);
+                setSaved(false);
+              }}
+            >
+              <Field label="Your name / آپ کا نام">
+                <input
+                  required
+                  maxLength={80}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </Field>
+              <Field label="Your trade / ہنر">
+                <select value={trade} onChange={(e) => setTrade(e.target.value)}>
+                  {trades.map((t) => (
+                    <option key={t}>{t}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Years of experience (leave blank if unknown)">
+                <input
+                  type="number"
+                  min="0"
+                  max="80"
+                  value={years}
+                  onChange={(e) => setYears(e.target.value)}
+                />
+              </Field>
+              <Field label="Services — one per line / آپ کے کام">
+                <textarea required value={services} onChange={(e) => setServices(e.target.value)} />
+              </Field>
+              <p className="field-title">Where do you work? / آپ کے علاقے</p>
+              <div className="chips">
+                {areas.map((a) => (
+                  <button
+                    type="button"
+                    aria-pressed={selected.includes(a)}
+                    className={selected.includes(a) ? "chip selected" : "chip"}
+                    key={a}
+                    onClick={() => {
+                      setSelected(
+                        selected.includes(a) ? selected.filter((x) => x !== a) : [...selected, a],
+                      );
+                      setConfirmed(false);
+                    }}
+                  >
+                    {selected.includes(a) && <Check size={15} />} {a}
+                  </button>
+                ))}
+              </div>
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={available}
+                  onChange={(e) => setAvailable(e.target.checked)}
+                />
+                Available for new work / کام کے لیے دستیاب
+              </label>
+            </div>
+            <ReadAloud text={draft} language={lang} />
+            <label className="check">
+              <input
+                type="checkbox"
+                required
+                checked={confirmed}
+                onChange={(e) => setConfirmed(e.target.checked)}
+              />
+              I checked these details and want to publish them.
+            </label>
+            <button>
+              Publish profile <ArrowRight size={18} />
+            </button>
+            {saved && (
+              <p role="status" className="success">
+                Profile saved and published.
+              </p>
+            )}
+          </Form>
+        </section>
+      </div>
     </>
   );
 }
-
-function Discovery({
-  selectedTrade,
-  setSelectedTrade,
-  selectedFilters,
-  setSelectedFilters,
-  available,
-  onProfile,
-  onOffline,
-}: {
-  selectedTrade: number;
-  setSelectedTrade: (n: number) => void;
-  selectedFilters: string[];
-  setSelectedFilters: (v: string[]) => void;
-  available: boolean;
-  onProfile: () => void;
-  onOffline: () => void;
-}) {
-  const filters = ["Available now", "Under 2 km", "4.5+ rating"];
+function Discovery({ onSelect, revision }: { onSelect: (p: Profile) => void; revision: number }) {
+  const [area, setArea] = useState("G-9"),
+    [trade, setTrade] = useState("Electrician"),
+    [free, setFree] = useState(true),
+    [workers, setWorkers] = useState<Profile[]>([]),
+    [error, setError] = useState(""),
+    [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let live = true;
+    setLoading(true);
+    setError("");
+    api<Profile[]>(
+      `/workers?area=${encodeURIComponent(area)}&trade=${encodeURIComponent(trade)}${free ? "&available=now" : ""}`,
+    )
+      .then((rows) => {
+        if (live) setWorkers(rows);
+      })
+      .catch((e) => {
+        if (live) setError(e.message);
+      })
+      .finally(() => {
+        if (live) setLoading(false);
+      });
+    return () => {
+      live = false;
+    };
+  }, [area, trade, free, revision]);
   return (
     <>
-      <PageHeading
-        eyebrow="G-9 · ISLAMABAD"
-        title="Kya theek karwana hai?"
-        text="Tasveer chunein ya awaaz mein masla batayein."
-      />
-      <div className="discovery-tools">
-        <div className="mini-trades">
-          {trades.map((trade, i) => {
-            const Icon = trade.icon;
+      <Heading tag="ISLAMABAD & RAWALPINDI" title="The right hands. Nearby.">
+        Choose your area and the kind of help you need.
+      </Heading>
+      <section className="search-panel">
+        <Field label="Your neighbourhood">
+          <div className="input-icon">
+            <MapPin size={20} />
+            <select value={area} onChange={(e) => setArea(e.target.value)}>
+              {areas.map((a) => (
+                <option key={a}>{a}</option>
+              ))}
+            </select>
+          </div>
+        </Field>
+        <div className="trade-grid">
+          {trades.map((t, i) => {
+            const Icon = icons[i];
             return (
               <button
-                key={trade.name}
-                className={i === selectedTrade ? "selected" : ""}
-                onClick={() => setSelectedTrade(i)}
+                key={t}
+                className={trade === t ? "trade selected" : "trade"}
+                aria-pressed={trade === t}
+                onClick={() => setTrade(t)}
               >
                 <Icon />
-                <span>{trade.name.split(" ")[0]}</span>
+                <span>{t}</span>
               </button>
             );
           })}
         </div>
-        <button
-          className="voice-orb"
-          onClick={() => speak("Button daba kar apna masla bol kar batayein.")}
-        >
-          <span>
-            <Mic />
-          </span>
-          <div>
-            <b>Masla awaaz mein batayein</b>
-            <small>AI category suggest karega</small>
-          </div>
-          <Waveform />
-        </button>
-      </div>
-      <div className="filter-row">
-        {filters.map((f) => (
-          <button
-            key={f}
-            className={selectedFilters.includes(f) ? "active" : ""}
-            onClick={() =>
-              setSelectedFilters(
-                selectedFilters.includes(f)
-                  ? selectedFilters.filter((x) => x !== f)
-                  : [...selectedFilters, f],
-              )
-            }
-          >
-            {f === "Available now" && <span className="filter-dot" />}
-            {f}
-          </button>
-        ))}
-        <button aria-label="More filters">
-          <SlidersHorizontal size={17} />
-        </button>
-      </div>
-      <div className="result-count">
-        <b>{available ? "3 workers available now" : "2 workers nearby"}</b>
-        <span>Distance estimated</span>
-      </div>
-      <WorkerCard available={available} onClick={onProfile} />
-      <div className="worker-card muted-card">
-        <div className="worker-photo fallback">
-          <span>IK</span>
-          <i />
-        </div>
-        <div className="worker-summary">
-          <div className="worker-name">
-            <div>
-              <h3>Imran Khalid</h3>
-              <span>Electrician</span>
-            </div>
-            <div className="rating">
-              <Star fill="currentColor" /> 4.6
-            </div>
-          </div>
-          <p>UPS · circuit breaker · wiring</p>
-          <div className="worker-stats">
-            <span>
-              <MapPin /> 2.1 km
-            </span>
-            <span>
-              <BriefcaseBusiness /> 31 jobs
-            </span>
-          </div>
-        </div>
-        <button className="view-button" onClick={onOffline}>
-          Not available · Save request
-        </button>
-      </div>
-    </>
-  );
-}
-
-function WorkerCard({ available, onClick }: { available: boolean; onClick: () => void }) {
-  return (
-    <div className="worker-card featured">
-      <div className="worker-photo">
-        <img src={workerPhoto} alt="Aslam Khan, local electrician" />
-        <span className={available ? "available" : ""} />
-      </div>
-      <div className="worker-summary">
-        <div className="worker-name">
-          <div>
-            <h3>Aslam Khan</h3>
-            <span>Electrician · Bijli ustad</span>
-          </div>
-          <div className="rating">
-            <Star fill="currentColor" /> 4.9
-          </div>
-        </div>
-        <p>Fans · switches · home wiring</p>
-        <div className="worker-stats">
-          <span>
-            <MapPin /> G-9 · 1.2 km
-          </span>
-          <span>
-            <BriefcaseBusiness /> 47 jobs
-          </span>
-        </div>
-        <div className="estimate">
-          Starting labour estimate <b>PKR 1,500</b>
-        </div>
-      </div>
-      <div className={`availability-line ${available ? "available" : ""}`}>
-        <span />{" "}
-        {available
-          ? "Available now · usually replies in 3 min"
-          : "Not taking jobs · request for later"}
-      </div>
-      <button className="view-button" onClick={onClick}>
-        View and discuss <ArrowRight size={18} />
-      </button>
-    </div>
-  );
-}
-
-function WorkerProfile({
-  available,
-  onBack,
-  onDiscuss,
-}: {
-  available: boolean;
-  onBack: () => void;
-  onDiscuss: () => void;
-}) {
-  return (
-    <>
-      <button className="back-button" onClick={onBack}>
-        <ArrowLeft /> Back to workers
-      </button>
-      <div className="profile-hero">
-        <div className="profile-photo">
-          <img src={workerPhoto} alt="Aslam Khan" />
-          <span className={available ? "available" : ""} />
-        </div>
-        <div>
-          <div className="eyebrow">ELECTRICIAN · G-9</div>
-          <h1>Aslam Khan</h1>
-          <p>Fans · switches · home wiring</p>
-        </div>
-      </div>
-      <div className="evidence-grid">
-        <div>
-          <Star fill="currentColor" />
-          <b>4.9</b>
-          <small>28 platform reviews</small>
-        </div>
-        <div>
-          <BriefcaseBusiness />
-          <b>47</b>
-          <small>completed platform jobs</small>
-        </div>
-        <div>
-          <Clock3 />
-          <b>10 years</b>
-          <small>self-reported experience</small>
-        </div>
-      </div>
-      <div className="profile-section">
-        <div className="section-title">
-          <div>
-            <span>VOICE INTRO</span>
-            <h2>Aslam se sunein</h2>
-          </div>
-          <SpeakerButton text="Main Aslam hoon. Das saal se electrician ka kaam karta hoon." />
-        </div>
-        <AudioNote
-          text="Main Aslam hoon. Das saal se electrician ka kaam karta hoon..."
-          time="0:19"
-        />
-      </div>
-      <div className="profile-section">
-        <div className="section-title">
-          <div>
-            <span>PLATFORM EVIDENCE</span>
-            <h2>Customer voice reviews</h2>
-          </div>
-        </div>
-        <AudioNote text="Waqt par aaye aur fan bohat achi tarah theek kiya." time="0:11" />
-        <div className="review-meta">
-          <b>Fatima R.</b>
-          <span>Completed job RR-2312-089</span>
-        </div>
-      </div>
-      <div className="sticky-cta">
-        <p>
-          <b>Estimate: PKR 1,500+</b>
-          <span>Final price discussion ke baad</span>
-        </p>
-        <button onClick={onDiscuss}>
-          <MessageCircleMore /> Discuss this job
-        </button>
-      </div>
-    </>
-  );
-}
-
-function Conversation({ onContinue, offline }: { onContinue: () => void; offline: boolean }) {
-  const [recorded, setRecorded] = useState(false);
-  return (
-    <>
-      <div className="conversation-head">
-        <div className="mini-profile">
-          <img src={workerPhoto} alt="" />
-          <span />
-        </div>
-        <div>
-          <span>DISCUSSING WITH</span>
-          <h1>Aslam Khan</h1>
-          <small>Both can hear the same scope</small>
-        </div>
-        <button>
-          <Phone />
-        </button>
-      </div>
-      <div className="scope-chip">
-        <Zap /> Fan dheema + switch garam{" "}
-        <button>
-          <Volume2 />
-        </button>
-      </div>
-      <div className="messages">
-        <div className="day-divider">TODAY · Voice notes are private</div>
-        <AudioNote text="Ceiling fan dheema chal raha hai aur switch garam hota hai." time="0:12" />
-        <AudioNote
-          mine
-          text="Main aaj aa sakta hoon. Fan aur switch check kar ke labour 2,500 hogi."
-          time="0:16"
-        />
-        {offline && (
-          <div className="retry-note">
-            <WifiOff /> Not sent · your recording is safe <button>Retry</button>
-          </div>
-        )}
-      </div>
-      <div className="record-composer">
-        {recorded ? (
-          <>
-            <button className="delete-recording" onClick={() => setRecorded(false)}>
-              <Trash2 />
-            </button>
-            <div className="record-preview">
-              <button>
-                <Play fill="currentColor" />
-              </button>
-              <Waveform />
-              <b>0:08</b>
-            </div>
-            <button className="send-recording" onClick={onContinue}>
-              <ArrowRight />
-            </button>
-          </>
-        ) : (
-          <VoiceChamber compact onComplete={() => setRecorded(true)} />
-        )}
-        <p>{recorded ? "Pehle sunein, phir bhejein" : "Daba kar bolein · release to stop"}</p>
-      </div>
-      <button className="agreement-shortcut" onClick={onContinue}>
-        <span>
-          <BadgeCheck /> Scope & price proposal
-        </span>
-        <ChevronRight />
-      </button>
-    </>
-  );
-}
-
-function Agreement({
-  accepted,
-  onAccept,
-  onContinue,
-}: {
-  accepted: boolean;
-  onAccept: () => void;
-  onContinue: () => void;
-}) {
-  const [materials, setMaterials] = useState(false);
-  const [read, setRead] = useState(false);
-  const proposal =
-    "Fan ki service aur garam switch ki replacement. Labour qeemat do hazaar paanch sau rupay. Material shamil nahi.";
-  return (
-    <>
-      <PageHeading
-        eyebrow="EXPLICIT AGREEMENT"
-        title="Kaam aur qeemat"
-        text="AI ne draft banaya. Sirf aap accept kar sakte hain."
-      />
-      <div className={`agreement-card ${accepted ? "accepted" : ""}`}>
-        <div className="agreement-top">
-          <div>
-            <span>PROPOSAL FROM ASLAM</span>
-            <b>{accepted ? "ACCEPTED" : "WAITING FOR FATIMA"}</b>
-          </div>
-          <span className="seal">{accepted ? <Check /> : <Clock3 />}</span>
-        </div>
-        <div className="scope-block">
-          <span>JOB SCOPE</span>
-          <h2>Fan service + hot switch replacement</h2>
-          <small>
-            <MapPin /> Approx. area: G-9, Islamabad
-          </small>
-        </div>
-        <div className="price-block">
-          <span>AGREED LABOUR</span>
-          <strong>
-            <small>PKR</small> 2,500
-          </strong>
-        </div>
-        <button
-          className={`material-toggle ${materials ? "on" : ""}`}
-          onClick={() => setMaterials(!materials)}
-        >
-          <span className="toggle-knob" />
-          <div>
-            <b>Materials {materials ? "included" : "excluded"}</b>
-            <small>Labour price remains PKR 2,500</small>
-          </div>
-        </button>
-        <div className="agreement-details">
-          <div>
-            <span>Timing</span>
-            <b>Now · today</b>
-          </div>
-          <div>
-            <span>Proposal</span>
-            <b>Aslam · Worker</b>
-          </div>
-        </div>
-        <button
-          className="read-agreement"
-          onClick={() => {
-            speak(proposal);
-            setRead(true);
-          }}
-        >
-          <Volume2 /> {read ? "Dobara sunein" : "Puri agreement sunain"}
-        </button>
-      </div>
-      {!accepted ? (
-        <div className="agreement-actions">
-          <button className="change-button">
-            <RotateCcw /> Change mangain
-          </button>
-          <button className="accept-button" onClick={onAccept}>
-            <Check /> Qeemat manzoor hai
-          </button>
-        </div>
-      ) : (
-        <button className="bottom-action success" onClick={onContinue}>
-          <span>Booking tasdeeq dekhein</span>
-          <ArrowRight />
-        </button>
-      )}
-      <p className="safety-copy">
-        <CircleAlert /> AI kabhi price set ya accept nahi karta. Revision se purani acceptance foran
-        invalid ho gi.
-      </p>
-    </>
-  );
-}
-
-function ActiveJob({
-  role,
-  started,
-  finished,
-  conflict,
-  setConflict,
-  onStart,
-  onFinish,
-  onReview,
-  onFindAnother,
-}: {
-  role: Role;
-  started: boolean;
-  finished: boolean;
-  conflict: boolean;
-  setConflict: (v: boolean) => void;
-  onStart: () => void;
-  onFinish: () => void;
-  onReview: () => void;
-  onFindAnother: () => void;
-}) {
-  const activeStep = finished ? 4 : started ? 3 : 2;
-  return (
-    <>
-      <div className="confirmation-hero">
-        <div className="confirmation-seal">
-          <Check />
-        </div>
-        <span>ATOMICALLY CONFIRMED</span>
-        <h1>{finished ? "Kaam mukammal" : "Booking tasdeeq ho gayi"}</h1>
-        <p>Dono taraf ek hi record nazar aa raha hai.</p>
-      </div>
-      <div className="booking-ticket">
-        <div className="ticket-head">
-          <span>BOOKING ID</span>
-          <b dir="ltr">RR-2408-117</b>
-        </div>
-        <div>
-          <span>Scope</span>
-          <b>Fan + switch repair</b>
-        </div>
-        <div>
-          <span>Labour</span>
-          <b>PKR 2,500</b>
-        </div>
-        <div>
-          <span>Area</span>
-          <b>G-9, Islamabad</b>
-        </div>
-      </div>
-      <div className="lifecycle">
-        {["Requested", "Discussing", "Confirmed", "In progress", "Completed"].map((label, i) => (
-          <div key={label} className={i <= activeStep ? "done" : ""}>
-            <span>{i < activeStep ? <Check /> : i + 1}</span>
-            <b>{label}</b>
-          </div>
-        ))}
-      </div>
-      <div className="next-step-card">
-        <span>NEXT · {role.toUpperCase()}</span>
+        <label className="check">
+          <input type="checkbox" checked={free} onChange={(e) => setFree(e.target.checked)} />
+          Show only available workers
+        </label>
+      </section>
+      <div className="section-heading">
         <h2>
-          {finished
-            ? "Fatima completion confirm karein"
-            : started
-              ? "Kaam mukammal hone par batayein"
-              : "Pohanch kar job start karein"}
+          {loading
+            ? "Finding workers…"
+            : `${workers.length} ${workers.length === 1 ? "worker" : "workers"} in ${area}`}
         </h2>
-        {role === "worker" && !started && (
-          <button className="primary-button full" onClick={onStart}>
-            <Wrench /> Main pohanch gaya · Start
-          </button>
-        )}
-        {role === "worker" && started && !finished && (
-          <button className="primary-button full" onClick={onFinish}>
-            <Check /> Kaam mukammal
-          </button>
-        )}
-        {(finished || role === "customer") && (
-          <button className="primary-button full" onClick={onReview}>
-            <Star /> Completion confirm + Review
-          </button>
-        )}
+        <span className="muted">Matched by service area</span>
       </div>
-      <button className="conflict-trigger" onClick={() => setConflict(true)}>
-        <Code2 /> Judge demo: Simulate 2nd customer booking attempt
-      </button>
-      {conflict && (
-        <div className="conflict-card">
-          <div>
-            <CircleAlert />
-            <span>
-              <b>This worker has just accepted another job</b>
-              <p>Your scope and voice request are still saved.</p>
-            </span>
-            <button onClick={() => setConflict(false)}>
-              <X />
-            </button>
-          </div>
-          <button onClick={onFindAnother}>
-            <Search /> Find another worker
-          </button>
-        </div>
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
       )}
+      <div className="worker-grid">
+        {!loading && !workers.length && !error && (
+          <div className="card empty">
+            <Search />
+            <h2>No workers here yet.</h2>
+            <p>Try another trade or neighbourhood, or turn off the availability filter.</p>
+          </div>
+        )}
+        {workers.map((w) => (
+          <button className="worker-card" key={w.user_id} onClick={() => onSelect(w)}>
+            <div className="worker-card-top">
+              <span className="avatar">{w.name.slice(0, 1)}</span>
+              <span className={"pill " + (w.available ? "green" : "")}>
+                {w.available ? "Available now" : "Not available now"}
+              </span>
+            </div>
+            <h2>{w.name}</h2>
+            <p>
+              {w.trade}
+              {w.years_experience !== null ? ` · ${w.years_experience} years experience` : ""}
+            </p>
+            <p className="muted">{w.services.join(" · ")}</p>
+            <div className="rating">
+              <Star size={17} />
+              {w.review_count
+                ? `${Number(w.rating).toFixed(1)} · ${w.review_count} reviews`
+                : "No reviews yet"}
+            </div>
+            <div className="card-footer">
+              <span>Serves {area} · Trade match</span>
+              <ArrowRight size={20} />
+            </div>
+          </button>
+        ))}
+      </div>
     </>
   );
 }
-
-function Review({
-  rating,
-  setRating,
-  reviewed,
-  onSubmit,
-  onHome,
+function WorkerDetail({
+  worker,
+  user,
+  onRequest,
+  onAuth,
 }: {
-  rating: number;
-  setRating: (v: number) => void;
-  reviewed: boolean;
-  onSubmit: () => void;
-  onHome: () => void;
+  worker: Profile;
+  user: User | null;
+  onRequest: (job: Job) => void;
+  onAuth: () => void;
 }) {
-  const [tags, setTags] = useState(["Waqt par aaye", "Saaf kaam"]);
-  if (reviewed)
-    return (
-      <div className="review-success">
-        <div className="reputation-orb">
-          <Star fill="currentColor" />
-          <span>4.9</span>
+  const [profile, setProfile] = useState(worker),
+    [error, setError] = useState("");
+  useEffect(() => {
+    api<Profile>("/workers/" + worker.user_id)
+      .then(setProfile)
+      .catch((e) => setError(e.message));
+  }, [worker.user_id]);
+  return (
+    <section className="card detail">
+      <span className="avatar large">{profile.name.slice(0, 1)}</span>
+      <Heading tag={profile.trade.toUpperCase()} title={profile.name}>
+        {profile.available
+          ? "Available for a new job"
+          : "Currently unavailable — you may still send a request"}
+      </Heading>
+      {error && <p className="error">{error}</p>}
+      <div className="stats">
+        <div>
+          <strong>{profile.completed_jobs}</strong>
+          <span>Completed jobs</span>
         </div>
-        <div className="eyebrow">TRUST LOOP COMPLETE</div>
-        <h1>Shukriya, Fatima</h1>
-        <p>Aap ka feedback Aslam ke platform record mein add ho gaya.</p>
-        <div className="update-list">
-          <div>
-            <Check />
-            <span>
-              <b>48 completed jobs</b>
-              <small>47 se barh kar 48</small>
-            </span>
-          </div>
-          <div>
-            <Check />
-            <span>
-              <b>Rating updated: 4.9</b>
-              <small>29 platform reviews</small>
-            </span>
-          </div>
-          <div>
-            <Check />
-            <span>
-              <b>Available now</b>
-              <small>Booking lock khul gaya</small>
-            </span>
-          </div>
+        <div>
+          <strong>{profile.review_count ? Number(profile.rating).toFixed(1) : "—"}</strong>
+          <span>{profile.review_count} reviews</span>
         </div>
-        <button className="bottom-action success" onClick={onHome}>
-          <span>Aslam ka synced home dekhein</span>
-          <ArrowRight />
-        </button>
+        <div>
+          <strong>{profile.years_experience ?? "—"}</strong>
+          <span>Years of experience</span>
+        </div>
       </div>
-    );
+      <h2>How I can help</h2>
+      <ul>
+        {profile.services.map((s) => (
+          <li key={s}>{s}</li>
+        ))}
+      </ul>
+      <p>
+        <MapPin size={16} /> {profile.areas.join(" · ")}
+      </p>
+      <h2>Request this worker</h2>
+      {!user ? (
+        <button onClick={onAuth}>
+          Sign in to request <ArrowRight size={18} />
+        </button>
+      ) : (
+        <Form
+          onSubmit={async (d) =>
+            onRequest(
+              await api<Job>("/requests", {
+                worker_id: profile.user_id,
+                area: d.get("area"),
+                description: d.get("description"),
+              }),
+            )
+          }
+        >
+          <Field label="Job area">
+            <select name="area">
+              {profile.areas.map((a) => (
+                <option key={a}>{a}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="What needs fixing?">
+            <textarea
+              name="description"
+              required
+              maxLength={2000}
+              placeholder="For example: my ceiling fan is not turning."
+            />
+          </Field>
+          <button>
+            Send job request <ArrowRight size={18} />
+          </button>
+          <p className="muted">A request is not a booking. Review and accept a price first.</p>
+        </Form>
+      )}
+      <h2>Customer feedback</h2>
+      {profile.reviews?.length ? (
+        profile.reviews.map((r, i) => (
+          <blockquote key={i}>
+            <b>{r.rating}/5</b> {r.feedback || "Rating only"}
+          </blockquote>
+        ))
+      ) : (
+        <p className="muted">No reviews yet. Feedback comes from completed jobs.</p>
+      )}
+    </section>
+  );
+}
+function Conversation({
+  job,
+  user,
+  onRefresh,
+  onFind,
+}: {
+  job: Job;
+  user: User;
+  onRefresh: () => Promise<void>;
+  onFind: () => void;
+}) {
+  const isWorker = user.id === job.worker_id,
+    p = job.proposals[0],
+    b = job.booking,
+    open = ["requested", "discussing"].includes(job.status);
+  const [message, setMessage] = useState(""),
+    [actionError, setActionError] = useState(""),
+    [busy, setBusy] = useState(false);
+  const mutate = async (path: string, data: unknown) => {
+    await api(path, data);
+    await onRefresh();
+  };
+  async function action(path: string, data: unknown = {}) {
+    setBusy(true);
+    setActionError("");
+    try {
+      await mutate(path, data);
+    } catch (e) {
+      setActionError((e as Error).message);
+      await onRefresh().catch(() => {});
+    } finally {
+      setBusy(false);
+    }
+  }
+  function acceptKey() {
+    const key = `accept:${job.id}:${p.version}`;
+    let value = sessionStorage.getItem(key);
+    if (!value) {
+      value = crypto.randomUUID();
+      sessionStorage.setItem(key, value);
+    }
+    return value;
+  }
   return (
     <>
-      <PageHeading
-        eyebrow="LAST STEP"
-        title="Kaam kaisa hua?"
-        text="Sitaray chunein, alfaaz chunein, ya awaaz mein review dein."
-      />
-      <div className="rating-selector" dir="ltr">
-        {[1, 2, 3, 4, 5].map((n) => (
-          <button key={n} className={n <= rating ? "active" : ""} onClick={() => setRating(n)}>
-            <Star fill={n <= rating ? "currentColor" : "none"} />
-            <span>{n}</span>
-          </button>
-        ))}
+      <Heading
+        tag={`${job.area} · ${job.status.replaceAll("_", " ")}`}
+        title={isWorker ? "Your job request" : `Your request to ${job.worker_name}`}
+      >
+        {job.description}
+      </Heading>
+      <div className="editor-grid">
+        <section className="card">
+          <h2>
+            <MessageCircle size={22} /> Conversation
+          </h2>
+          <p className="muted">Private to you and the other participant.</p>
+          <div className="messages">
+            {job.messages.length ? (
+              job.messages.map((m) => (
+                <div key={m.id} className={"message " + (m.sender_id === user.id ? "mine" : "")}>
+                  <small>
+                    {m.sender_id === user.id ? "You" : isWorker ? "Customer" : "Worker"}
+                  </small>
+                  {m.body && <p>{m.body}</p>}
+                  {m.audio_id && (
+                    <audio controls src={"/api/audio/" + m.audio_id} aria-label="Voice message" />
+                  )}
+                </div>
+              ))
+            ) : (
+              <p className="muted">Start the conversation. A short voice note can help.</p>
+            )}
+          </div>
+          {open && (
+            <>
+              <Form
+                onSubmit={async () => {
+                  await mutate(`/requests/${job.id}/messages`, { body: message });
+                  setMessage("");
+                }}
+              >
+                <Field label="Message">
+                  <textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    required
+                    maxLength={2000}
+                  />
+                </Field>
+                <button>Send message</button>
+              </Form>
+              <Recorder
+                label="Send voice note"
+                onSend={async (blob) => {
+                  const audio_id = await upload(blob, job.id);
+                  await mutate(`/requests/${job.id}/messages`, { audio_id });
+                }}
+              />
+            </>
+          )}
+        </section>
+        <section className="card">
+          <h2>Agree before you book.</h2>
+          {p ? (
+            <div className="proposal">
+              <span className="eyebrow">PROPOSAL · VERSION {p.version}</span>
+              <p>{p.scope}</p>
+              <strong className="price">PKR {p.price_pkr.toLocaleString()}</strong>
+              <p>
+                {p.materials_included ? "Materials included" : "Labour only · materials excluded"}
+              </p>
+              <ReadAloud
+                text={`${p.scope}. Price ${p.price_pkr} Pakistani rupees. Materials ${p.materials_included ? "included" : "excluded"}.`}
+              />
+              {!isWorker && open && (
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    action(`/requests/${job.id}/accept`, {
+                      version: p.version,
+                      idempotency_key: acceptKey(),
+                    })
+                  }
+                >
+                  Accept & confirm booking <Check size={18} />
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="notice">
+              {isWorker
+                ? "Send a clear scope and price for the customer to review."
+                : "Waiting for the worker to propose a price."}
+            </p>
+          )}
+          {isWorker && open && (
+            <Form
+              key={p?.version || 0}
+              onSubmit={async (d) =>
+                mutate(`/requests/${job.id}/proposals`, {
+                  scope: d.get("scope"),
+                  price_pkr: Number(d.get("price")),
+                  materials_included: d.get("materials") === "on",
+                })
+              }
+            >
+              <Field label="Scope of work">
+                <textarea name="scope" required maxLength={2000} defaultValue={p?.scope || ""} />
+              </Field>
+              <Field label="Price in PKR">
+                <input
+                  name="price"
+                  type="number"
+                  required
+                  min="0"
+                  max="10000000"
+                  step="1"
+                  defaultValue={p?.price_pkr ?? ""}
+                />
+              </Field>
+              <label className="check">
+                <input name="materials" type="checkbox" defaultChecked={!!p?.materials_included} />
+                Materials included (unchecked = excluded)
+              </label>
+              <button>{p ? "Send revised proposal" : "Send proposal"}</button>
+            </Form>
+          )}
+          {b && (
+            <div className="booking">
+              <p className="eyebrow">BOOKING</p>
+              <h2>{b.status.replaceAll("_", " ")}</h2>
+              <p className="muted">Booking {b.id.slice(0, 8)}</p>
+              {isWorker && b.status === "confirmed" && (
+                <button disabled={busy} onClick={() => action(`/bookings/${b.id}/start`)}>
+                  Start job
+                </button>
+              )}
+              {isWorker && b.status === "in_progress" && !b.worker_marked_done_at && (
+                <button disabled={busy} onClick={() => action(`/bookings/${b.id}/worker-finished`)}>
+                  Mark work finished
+                </button>
+              )}
+              {b.worker_marked_done_at && b.status === "in_progress" && (
+                <p className="notice">
+                  Worker marked the job finished. Waiting for customer confirmation.
+                </p>
+              )}
+              {!isWorker && b.status === "in_progress" && b.worker_marked_done_at && (
+                <button disabled={busy} onClick={() => action(`/bookings/${b.id}/complete`)}>
+                  Confirm job completed
+                </button>
+              )}
+              {b.status === "confirmed" && (
+                <button
+                  className="text-button"
+                  disabled={busy}
+                  onClick={() => action(`/bookings/${b.id}/cancel`)}
+                >
+                  Cancel unstarted booking
+                </button>
+              )}
+              {b.status === "completed" && !isWorker && !job.review && (
+                <Form
+                  onSubmit={async (d) =>
+                    mutate(`/bookings/${b.id}/reviews`, {
+                      rating: Number(d.get("rating")),
+                      feedback: d.get("feedback"),
+                    })
+                  }
+                >
+                  <h2>How did it go?</h2>
+                  <Field label="Your rating">
+                    <select name="rating" defaultValue="5">
+                      {[5, 4, 3, 2, 1].map((r) => (
+                        <option key={r} value={r}>
+                          {r} out of 5
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Your feedback (optional)">
+                    <textarea name="feedback" maxLength={2000} />
+                  </Field>
+                  <button>Publish review</button>
+                </Form>
+              )}
+              {job.review && (
+                <p className="success">
+                  Review saved: {job.review.rating}/5 · {job.review.feedback}
+                </p>
+              )}
+            </div>
+          )}
+          {open && (
+            <button
+              className="text-button"
+              disabled={busy}
+              onClick={() => action(`/requests/${job.id}/${isWorker ? "decline" : "cancel"}`)}
+            >
+              {isWorker ? "Decline request" : "Cancel request"}
+            </button>
+          )}
+          {actionError && (
+            <div className="error" role="alert">
+              {actionError}
+              <button className="secondary" onClick={onFind}>
+                Find available workers
+              </button>
+            </div>
+          )}
+        </section>
       </div>
-      <div className="spoken-rating">
-        <SpeakerButton text={`${rating} sitaray chune gaye hain.`} />
-        <b>{rating === 5 ? "Bohat acha kaam" : `${rating} sitaray`}</b>
-      </div>
-      <div className="review-tags">
-        {["Waqt par aaye", "Saaf kaam", "Achi baat cheet", "Qeemat wazeh thi"].map((tag) => (
-          <button
-            key={tag}
-            className={tags.includes(tag) ? "selected" : ""}
-            onClick={() =>
-              setTags(tags.includes(tag) ? tags.filter((t) => t !== tag) : [...tags, tag])
-            }
-          >
-            {tags.includes(tag) && <Check />}
-            {tag}
-          </button>
-        ))}
-      </div>
-      <div className="voice-review">
-        <div>
-          <span>OPTIONAL VOICE REVIEW</span>
-          <b>Awaaz mein kuch kehna chahein?</b>
-        </div>
-        <VoiceChamber compact />
-      </div>
-      <button className="bottom-action success" onClick={onSubmit}>
-        <span>Review jama karein</span>
-        <ArrowRight />
-      </button>
-      <p className="availability-note">
-        <Sparkles /> Submit karte hi Aslam phir “Available Now” ho jayega.
-      </p>
     </>
   );
 }
-
-function Drawer({
-  open,
-  onClose,
-  title,
-  children,
-}: {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
-}) {
+export default function App() {
+  const [lang, setLang] = useState<Lang>("en"),
+    [user, setUser] = useState<User | null>(null),
+    [ready, setReady] = useState(false),
+    [screen, setScreen] = useState("welcome"),
+    [role, setRole] = useState<User["role"]>("customer"),
+    [profile, setProfile] = useState<Profile | null>(null),
+    [jobs, setJobs] = useState<Job[]>([]),
+    [selected, setSelected] = useState<Profile | null>(null),
+    [jobId, setJobId] = useState(""),
+    [error, setError] = useState(""),
+    [revision, setRevision] = useState(0);
+  const t = copy[lang];
+  const refresh = useCallback(async () => {
+    if (!user) return;
+    const [j, p] = await Promise.all([
+      api<Job[]>("/requests"),
+      user.role === "worker" ? api<Profile | null>("/profile") : Promise.resolve(null),
+    ]);
+    setJobs(j);
+    setProfile(p);
+    setRevision((v) => v + 1);
+  }, [user]);
+  useEffect(() => {
+    api<{ user: User | null }>("/auth/me")
+      .then((r) => {
+        setUser(r.user);
+        if (r.user) setScreen(r.user.role === "worker" ? "profile" : "discover");
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setReady(true));
+  }, []);
+  useEffect(() => {
+    if (!user) return;
+    void refresh().catch((e) => setError(e.message));
+    const update = () => {
+      if (document.visibilityState === "visible") void refresh().catch((e) => setError(e.message));
+    };
+    const timer = setInterval(update, 10000);
+    window.addEventListener("focus", update);
+    window.addEventListener("online", update);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", update);
+      window.removeEventListener("online", update);
+    };
+  }, [user, refresh]);
+  useEffect(() => {
+    document.documentElement.lang = lang === "ur" ? "ur" : lang === "roman" ? "ur-Latn" : "en";
+    document.documentElement.dir = lang === "ur" ? "rtl" : "ltr";
+  }, [lang]);
+  function auth(r: User["role"]) {
+    setRole(r);
+    setScreen("auth");
+  }
+  const job = jobs.find((j) => j.id === jobId);
   return (
-    <AnimatePresence>
-      {open && (
-        <>
-          <motion.button
-            className="drawer-backdrop"
-            onClick={onClose}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            aria-label="Close drawer"
-          />
-          <motion.aside
-            className="drawer"
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            dir="ltr"
+    <div className="app">
+      <a className="skip-link" href="#main">
+        Skip to content
+      </a>
+      <header>
+        <button
+          className="brand"
+          onClick={() =>
+            setScreen(user ? (user.role === "worker" ? "profile" : "discover") : "welcome")
+          }
+        >
+          <span className="brand-mark">
+            <Sun />
+          </span>
+          <span>
+            roshan rozgar<small>روشن روزگار</small>
+          </span>
+        </button>
+        <div className="header-actions">
+          <select
+            className="language"
+            aria-label="Language"
+            value={lang}
+            onChange={(e) => setLang(e.target.value as Lang)}
           >
-            <div className="drawer-head">
-              <div>
-                <span>ROSHAN ROZGAR</span>
-                <h2>{title}</h2>
-              </div>
-              <button onClick={onClose}>
-                <X />
-              </button>
-            </div>
-            {children}
-          </motion.aside>
-        </>
-      )}
-    </AnimatePresence>
-  );
-}
-
-function Annotation({
-  icon: Icon,
-  title,
-  text,
-  code,
-}: {
-  icon: typeof ShieldCheck;
-  title: string;
-  text: string;
-  code: string;
-}) {
-  return (
-    <div className="annotation">
-      <span>
-        <Icon />
-      </span>
-      <div>
-        <h3>{title}</h3>
-        <p>{text}</p>
-        <code>{code}</code>
+            <option value="en">English</option>
+            <option value="roman">Roman Urdu</option>
+            <option value="ur">اردو</option>
+          </select>
+          {user ? (
+            <button
+              className="text-button"
+              onClick={async () => {
+                try {
+                  await api("/auth/logout", {});
+                  setUser(null);
+                  setJobs([]);
+                  setProfile(null);
+                  setScreen("welcome");
+                } catch (e) {
+                  setError((e as Error).message);
+                }
+              }}
+            >
+              Sign out
+            </button>
+          ) : (
+            <button className="text-button" onClick={() => auth("customer")}>
+              Sign in
+            </button>
+          )}
+        </div>
+      </header>
+      <div className="local-banner">
+        <MapPin size={14} /> ISLAMABAD & RAWALPINDI{" "}
+        <span>Local MVP · real persisted accounts and jobs</span>
       </div>
+      {user && (
+        <nav aria-label="Main navigation">
+          {user.role === "customer" ? (
+            <button
+              className={screen === "discover" ? "active" : ""}
+              onClick={() => setScreen("discover")}
+            >
+              <Search size={18} />
+              {t.find}
+            </button>
+          ) : (
+            <button
+              className={screen === "profile" ? "active" : ""}
+              onClick={() => setScreen("profile")}
+            >
+              <Wrench size={18} />
+              {t.profile}
+            </button>
+          )}
+          <button className={screen === "jobs" ? "active" : ""} onClick={() => setScreen("jobs")}>
+            <BriefcaseBusiness size={18} />
+            {t.jobs} <span className="count">{jobs.length}</span>
+          </button>
+          <span className="signed-in">
+            {user.username} · {user.role}
+          </span>
+        </nav>
+      )}
+      <main id="main">
+        {error && (
+          <div className="error" role="alert">
+            {error}
+            <button
+              className="text-button"
+              onClick={() => {
+                setError("");
+                void refresh().catch((e) => setError(e.message));
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        {!ready ? (
+          <p role="status">Loading your workspace…</p>
+        ) : (
+          <>
+            {["detail", "conversation", "auth"].includes(screen) && (
+              <button
+                className="back text-button"
+                onClick={() =>
+                  setScreen(
+                    user
+                      ? screen === "conversation"
+                        ? "jobs"
+                        : user.role === "worker"
+                          ? "profile"
+                          : "discover"
+                      : "welcome",
+                  )
+                }
+              >
+                <ArrowLeft size={18} />
+                Back
+              </button>
+            )}
+            {screen === "welcome" && (
+              <>
+                <section className="hero">
+                  <div className="hero-copy">
+                    <p className="eyebrow">LOCAL SKILLS. NEW POSSIBILITIES.</p>
+                    <h1>{t.title}</h1>
+                    <p>{t.intro}</p>
+                    <div className="actions">
+                      <button onClick={() => setScreen("discover")}>
+                        {t.find}
+                        <ArrowRight size={20} />
+                      </button>
+                      <button className="secondary" onClick={() => auth("worker")}>
+                        {t.offer}
+                        <Wrench size={20} />
+                      </button>
+                    </div>
+                    <div className="hero-foot">
+                      <span>
+                        <Check size={17} />
+                        Agree on price first
+                      </span>
+                      <span>
+                        <Check size={17} />
+                        Reviews from completed jobs
+                      </span>
+                    </div>
+                  </div>
+                  <div className="hero-art" aria-hidden="true">
+                    <div className="sun-disc">
+                      <Sun strokeWidth={1} />
+                    </div>
+                    <div className="arch">
+                      <Wrench strokeWidth={1} />
+                    </div>
+                    <span className="art-label">ہنر سے روشن کل</span>
+                    <div className="art-caption">
+                      A brighter tomorrow,
+                      <br />
+                      built by skilled hands.
+                    </div>
+                  </div>
+                </section>
+                <section className="steps">
+                  <div>
+                    <span>01</span>
+                    <h2>Find your match</h2>
+                    <p>Choose a trade and your neighbourhood.</p>
+                  </div>
+                  <div>
+                    <span>02</span>
+                    <h2>Talk it through</h2>
+                    <p>Send a voice note. Agree on scope and price.</p>
+                  </div>
+                  <div>
+                    <span>03</span>
+                    <h2>Get it done</h2>
+                    <p>Confirm the work. Share your experience.</p>
+                  </div>
+                </section>
+              </>
+            )}
+            {screen === "auth" && (
+              <Auth
+                role={role}
+                onDone={(u) => {
+                  setUser(u);
+                  setScreen(u.role === "worker" ? "profile" : "discover");
+                }}
+              />
+            )}
+            {screen === "discover" && (
+              <Discovery
+                revision={revision}
+                onSelect={(p) => {
+                  setSelected(p);
+                  setScreen("detail");
+                }}
+              />
+            )}
+            {screen === "detail" && selected && (
+              <WorkerDetail
+                worker={selected}
+                user={user}
+                onAuth={() => auth("customer")}
+                onRequest={(j) => {
+                  setJobs((old) => [j, ...old]);
+                  setJobId(j.id);
+                  setScreen("conversation");
+                }}
+              />
+            )}
+            {screen === "profile" && user && (
+              <ProfileEditor
+                key={profile?.user_id || "new"}
+                profile={profile}
+                onSaved={refresh}
+                lang={lang}
+              />
+            )}
+            {screen === "jobs" && (
+              <>
+                <Heading tag="YOUR WORKSPACE" title="Every conversation. Every job.">
+                  Requests and bookings stay here when you come back.
+                </Heading>
+                <div className="job-list">
+                  {jobs.length ? (
+                    jobs.map((j) => (
+                      <button
+                        className="job-row"
+                        key={j.id}
+                        onClick={() => {
+                          setJobId(j.id);
+                          setScreen("conversation");
+                        }}
+                      >
+                        <span className="job-icon">
+                          <BriefcaseBusiness />
+                        </span>
+                        <span>
+                          <b>{j.description}</b>
+                          <small>
+                            {j.worker_name} · {j.area}
+                          </small>
+                        </span>
+                        <span className="pill">
+                          {j.booking?.status.replaceAll("_", " ") || j.status}
+                        </span>
+                        <ArrowRight size={18} />
+                      </button>
+                    ))
+                  ) : (
+                    <div className="card empty">
+                      <MessageCircle />
+                      <h2>No requests yet.</h2>
+                      <p>
+                        {user?.role === "worker"
+                          ? "Publish your profile so customers can find you."
+                          : "Find a worker to start your first conversation."}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+            {screen === "conversation" && job && user && (
+              <Conversation
+                key={job.id}
+                job={job}
+                user={user}
+                onRefresh={refresh}
+                onFind={() => setScreen("discover")}
+              />
+            )}
+          </>
+        )}
+      </main>
+      <footer>
+        <span>روشن روزگار · Work, with dignity.</span>
+        <span>
+          No payments or identity verification. Primary actions support Urdu; detailed forms are
+          bilingual/English.
+        </span>
+      </footer>
     </div>
   );
 }
-
-export default App;
